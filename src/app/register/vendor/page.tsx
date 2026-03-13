@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -9,11 +8,12 @@ import * as z from 'zod';
 import { Store, Phone, FileText, BadgeCheck, Loader2, Key, CheckCircle } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
-import { useFirestore, useUser, useAuth } from '@/firebase';
+import { useFirestore, useAuth } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -97,7 +97,9 @@ export default function VendorSignUp() {
       // Reset reCAPTCHA if it fails
       if (window.recaptchaVerifier) {
         window.recaptchaVerifier.render().then(widgetId => {
-          window.grecaptcha.reset(widgetId);
+          if (window.grecaptcha) {
+             window.grecaptcha.reset(widgetId);
+          }
         });
       }
     } finally {
