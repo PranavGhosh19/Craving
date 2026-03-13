@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -6,165 +7,76 @@ service cloud.firestore {
      * CORE PHILOSOPHY:
      * This ruleset implements a robust, multi-role security model for the Craving platform.
      * It segregates access based on the relationship between Vendors, Customers, and Orders.
-     *
-     * DATA STRUCTURE:
-     * - Vendor-specific data (Menu, Loyalty Programs) is nested under /vendors/{vendorId}.
-     * - Customer profiles and loyalty progress are managed under /customers/{customerId}.
-     * - Transactional data is stored in the top-level /orders collection to allow shared
-     *   access between the ordering Customer and the fulfilling Vendor.
-     *
-     * KEY SECURITY DECISIONS:
-     * - Public Read Access: Vendor profiles, menu items, and loyalty program definitions are
-     *   publicly readable to allow unauthenticated users (anonymous/browsing) to view menus.
-     * - Ownership-Based Writes: Modifying vendor or menu data is strictly restricted to the 
-     *   vendor owner using denormalized UID fields.
-     * - Shared Collaborative Access: Orders and Order Items are accessible only to the 
-     *   Customer who placed them and the Vendor who received them.
-     * - Denormalization: Authorization fields (like customerId, vendorId, and owner UIDs) are
-     *   stored directly on documents to ensure high-performance, cost-effective security checks
-     *   without the need for cross-document lookups.
      */
 
     // --- Helper Functions ---
 
-    /** @description Checks if the user is authenticated. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** @description Checks if the authenticated user's UID matches the provided ID. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /** @description Verifies ownership of an existing document before update or delete. */
     function isExistingOwner(userId) {
       return resource != null && isOwner(userId);
     }
 
-    /** @description Checks if the user is a participant (Customer or Vendor) in a shared document. */
     function isSharedParticipant(customerId, vendorId) {
       return isSignedIn() && (request.auth.uid == customerId || request.auth.uid == vendorId);
     }
 
-    /** @description Checks if a field remains unchanged during an update. */
     function isImmutable(fieldName) {
       return request.resource.data[fieldName] == resource.data[fieldName];
     }
 
     // --- Collection Rules ---
 
-    /**
-     * @description Publicly readable vendor profiles. Writes restricted to the vendor owner.
-     * @path /vendors/{vendorId}
-     * @allow (get, list) Any user can view vendor details.
-     * @allow (create, update) User whose UID matches the document's 'ownerId' field.
-     * @deny (write) If the user is not the designated owner or if the ownerId is missing.
-     * @principle Public read with owner-only writes.
-     */
     match /vendors/{vendorId} {
       allow get, list: if true;
-      
-      // CRITICAL: Cannot implement owner-only writes. The 'Vendor' entity schema is missing the 'ownerId' field 
-      // mentioned in the architectural reasoning.
       allow create: if isOwner(request.resource.data.ownerId) && request.resource.data.id == vendorId;
       allow update: if isExistingOwner(resource.data.ownerId) && isImmutable('id') && isImmutable('ownerId');
       allow delete: if isExistingOwner(resource.data.ownerId);
 
-      /**
-       * @description Subcollection of menu items for a specific vendor.
-       * @path /vendors/{vendorId}/menuItems/{menuItemId}
-       * @allow (get, list) Publicly visible menu items.
-       * @allow (create) Owner of the parent vendor.
-       * @principle Denormalized ownership for subcollection management.
-       */
       match /menuItems/{menuItemId} {
         allow get, list: if true;
-        
-        // CRITICAL: Schema missing 'vendorOwnerId'. Using placeholder for architectural intent.
         allow create: if isOwner(request.resource.data.vendorOwnerId) && request.resource.data.id == menuItemId;
         allow update: if isExistingOwner(resource.data.vendorOwnerId) && isImmutable('id') && isImmutable('vendorOwnerId');
         allow delete: if isExistingOwner(resource.data.vendorOwnerId);
       }
 
-      /**
-       * @description Loyalty programs offered by a vendor.
-       * @path /vendors/{vendorId}/loyaltyPrograms/{loyaltyProgramId}
-       * @allow (get, list) Publicly visible programs.
-       * @allow (update) Restricted to vendor owner.
-       * @principle Restricted write access to business definitions.
-       */
       match /loyaltyPrograms/{loyaltyProgramId} {
         allow get, list: if true;
-        
-        // CRITICAL: Schema missing 'vendorOwnerId'. Using placeholder for architectural intent.
         allow create: if isOwner(request.resource.data.vendorOwnerId) && request.resource.data.id == loyaltyProgramId;
         allow update: if isExistingOwner(resource.data.vendorOwnerId) && isImmutable('id') && isImmutable('vendorOwnerId');
         allow delete: if isExistingOwner(resource.data.vendorOwnerId);
       }
     }
 
-    /**
-     * @description Private customer profile data.
-     * @path /customers/{customerId}
-     * @allow (get, list, write) User whose UID matches the customerId (Path-based ownership).
-     * @deny (read/write) Access by any other user.
-     * @principle Strict path-based user ownership.
-     */
     match /customers/{customerId} {
       allow get, list: if isOwner(customerId);
       allow create: if isOwner(customerId) && request.resource.data.id == customerId;
       allow update: if isExistingOwner(customerId) && isImmutable('id');
       allow delete: if isExistingOwner(customerId);
 
-      /**
-       * @description Tracks a customer's loyalty progress at various vendors.
-       * @path /customers/{customerId}/customerLoyalties/{customerLoyaltyId}
-       * @allow (get, list) The customer themselves or the vendor associated with the program.
-       * @principle Shared access based on denormalized relational IDs.
-       */
       match /customerLoyalties/{customerLoyaltyId} {
-        // Shared access for customer and vendor
-        // Note: Schema missing 'customerOwnerId' and 'vendorId', defaulting to customerId check.
-        allow get: if isOwner(customerId);
-        allow list: if isOwner(customerId);
-        
-        // Writes allowed by the customer (to initialize) or system/vendor logic (to update progress).
-        // Prototyping allows customer ownership of this subcollection path.
+        allow get, list: if isOwner(customerId);
         allow create: if isOwner(customerId) && request.resource.data.id == customerLoyaltyId;
         allow update: if isOwner(customerId) && isImmutable('id');
         allow delete: if isOwner(customerId);
       }
     }
 
-    /**
-     * @description Collaborative order documents shared between customers and vendors.
-     * @path /orders/{orderId}
-     * @allow (get, list) Signed-in user if their UID matches 'customerId' or 'vendorId'.
-     * @allow (create) Signed-in customer creating their own order.
-     * @principle Collaborative access modeling using Queryable Authorization Predicates.
-     */
     match /orders/{orderId} {
       allow get: if isSharedParticipant(resource.data.customerId, resource.data.vendorId);
-      allow list: if isSignedIn(); // Filtering is enforced by the app querying for its own UID
-      
+      allow list: if isSignedIn();
       allow create: if isOwner(request.resource.data.customerId) && request.resource.data.id == orderId;
       allow update: if isSharedParticipant(resource.data.customerId, resource.data.vendorId) && isImmutable('id') && isImmutable('customerId') && isImmutable('vendorId');
       allow delete: if isSharedParticipant(resource.data.customerId, resource.data.vendorId);
 
-      /**
-       * @description Individual items within an order.
-       * @path /orders/{orderId}/orderItems/{orderItemId}
-       * @allow (get, list) Access granted if the user is the customer or vendor of the parent order.
-       * @principle Inherited shared access through denormalized fields.
-       */
       match /orderItems/{orderItemId} {
-        // Denormalized fields 'customerId' and 'vendorId' are expected in OrderItem for rule efficiency.
-        // CRITICAL: Schema missing 'customerId' and 'vendorId'. 
-        // Logic defaults to basic isSignedIn for prototype until fields are added to schema.
-        allow get: if isSignedIn(); 
-        allow list: if isSignedIn();
-        
+        allow get, list: if isSignedIn();
         allow create: if isSignedIn() && request.resource.data.id == orderItemId;
         allow update: if isSignedIn() && isImmutable('id') && isImmutable('orderId');
         allow delete: if isSignedIn();

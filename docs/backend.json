@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Vendor": {
@@ -10,9 +11,21 @@
           "type": "string",
           "description": "Unique identifier for the Vendor entity."
         },
+        "ownerId": {
+          "type": "string",
+          "description": "The Firebase UID of the vendor's manager."
+        },
         "name": {
           "type": "string",
           "description": "The name of the food stall or vendor business."
+        },
+        "gstNumber": {
+          "type": "string",
+          "description": "The GST registration number of the vendor."
+        },
+        "fssaiNumber": {
+          "type": "string",
+          "description": "The FSSAI license number of the vendor."
         },
         "description": {
           "type": "string",
@@ -58,9 +71,8 @@
       },
       "required": [
         "id",
+        "ownerId",
         "name",
-        "locationDescription",
-        "contactEmail",
         "contactPhone",
         "createdAt",
         "updatedAt",
