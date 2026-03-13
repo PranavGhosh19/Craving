@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -7,9 +8,9 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X, Eye, Store, QrCode, Download, ExternalLink } from 'lucide-react';
+import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X, Eye, Store, QrCode, Download } from 'lucide-react';
 import { collection, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -139,52 +140,63 @@ export default function MenuManagement() {
   }
 
   async function onSubmit(values: MenuItemValues) {
-    if (!firestore || !vendor?.id) return;
+    if (!firestore || !vendor?.id || !user?.uid) return;
     setIsAdding(true);
 
-    try {
-      const itemId = `item-${Date.now()}`;
-      const itemRef = doc(firestore, 'vendors', vendor.id, 'menuItems', itemId);
+    const itemId = `item-${Date.now()}`;
+    const itemRef = doc(firestore, 'vendors', vendor.id, 'menuItems', itemId);
+    const itemData = {
+      id: itemId,
+      vendorId: vendor.id,
+      vendorOwnerId: user.uid, // Required for security rules
+      name: values.name,
+      price: values.price,
+      description: values.description,
+      category: values.category,
+      imageUrl: values.imageUrl,
+      isAvailable: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
 
-      await setDoc(itemRef, {
-        id: itemId,
-        vendorId: vendor.id,
-        name: values.name,
-        price: values.price,
-        description: values.description,
-        category: values.category,
-        imageUrl: values.imageUrl,
-        isAvailable: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+    setDoc(itemRef, itemData)
+      .then(() => {
+        toast({
+          title: "Item Added",
+          description: `${values.name} has been added to your menu.`,
+        });
+        form.reset();
+        setImagePreview(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      })
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: itemRef.path,
+          operation: 'create',
+          requestResourceData: itemData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsAdding(false);
       });
-
-      toast({
-        title: "Item Added",
-        description: `${values.name} has been added to your menu.`,
-      });
-      form.reset();
-      setImagePreview(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Failed to add item",
-        description: error.message,
-      });
-    } finally {
-      setIsAdding(false);
-    }
   }
 
   async function handleDelete(itemId: string) {
     if (!firestore || !vendor?.id) return;
-    try {
-      await deleteDoc(doc(firestore, 'vendors', vendor.id, 'menuItems', itemId));
-      toast({ title: "Item deleted" });
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Delete failed", description: error.message });
-    }
+    const itemRef = doc(firestore, 'vendors', vendor.id, 'menuItems', itemId);
+    
+    deleteDoc(itemRef)
+      .then(() => {
+        toast({ title: "Item deleted" });
+      })
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: itemRef.path,
+          operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
   }
 
   const publicUrl = vendor && origin ? `${origin}/v/${vendor.id}` : '';
