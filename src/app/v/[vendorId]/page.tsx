@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -182,24 +183,32 @@ export default function PublicMenuPage() {
                         src={item.imageUrl} 
                         alt={item.name}
                         fill
-                        className="object-cover group-hover:scale-110 transition-transform duration-500"
+                        className={`object-cover group-hover:scale-110 transition-transform duration-500 ${!item.isAvailable ? 'grayscale opacity-60' : ''}`}
                       />
                       <div className="absolute top-3 right-3">
-                        <Badge className="bg-white/90 text-primary hover:bg-white font-bold text-sm px-3 py-1 shadow-sm">
-                          ₹{item.price}
+                        <Badge className={`${item.isAvailable ? 'bg-white/90 text-primary hover:bg-white' : 'bg-destructive text-destructive-foreground'} font-bold text-sm px-3 py-1 shadow-sm`}>
+                          {item.isAvailable ? `₹${item.price}` : 'Sold Out'}
                         </Badge>
                       </div>
+                      {!item.isAvailable && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[1px]">
+                          <Badge variant="destructive" className="h-8 px-4 rounded-full text-xs font-bold uppercase tracking-widest shadow-xl">Temporarily Unavailable</Badge>
+                        </div>
+                      )}
                     </div>
                     <CardContent className="p-5 space-y-2">
                       <div className="flex justify-between items-start">
-                        <h3 className="text-xl font-bold group-hover:text-primary transition-colors">{item.name}</h3>
+                        <h3 className={`text-xl font-bold transition-colors ${item.isAvailable ? 'group-hover:text-primary' : 'text-muted-foreground'}`}>{item.name}</h3>
                         <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-tighter bg-primary/5 text-primary border-none">{item.category}</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed h-10">
                         {item.description}
                       </p>
-                      <Button className="w-full mt-4 bg-primary text-white hover:bg-primary/90 font-bold rounded-xl h-11 transition-all shadow-lg shadow-primary/10 group-hover:shadow-primary/20">
-                        Order Now
+                      <Button 
+                        disabled={!item.isAvailable}
+                        className={`w-full mt-4 font-bold rounded-xl h-11 transition-all shadow-lg ${item.isAvailable ? 'bg-primary text-white hover:bg-primary/90 shadow-primary/10 group-hover:shadow-primary/20' : 'bg-muted text-muted-foreground shadow-none'}`}
+                      >
+                        {item.isAvailable ? 'Order Now' : 'Out of Stock'}
                       </Button>
                     </CardContent>
                   </Card>

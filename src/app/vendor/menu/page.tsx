@@ -9,7 +9,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X, Eye, Store, QrCode, Download } from 'lucide-react';
-import { collection, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import { generateDishDescription } from '@/ai/flows/generate-dish-description';
@@ -54,7 +55,6 @@ export default function MenuManagement() {
     }
   }, []);
 
-  // Redirect to landing page if user is not logged in
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.push('/');
@@ -206,6 +206,23 @@ export default function MenuManagement() {
       });
   }
 
+  async function toggleAvailability(itemId: string, currentStatus: boolean) {
+    if (!firestore || !vendor?.id) return;
+    const itemRef = doc(firestore, 'vendors', vendor.id, 'menuItems', itemId);
+    
+    updateDoc(itemRef, {
+      isAvailable: !currentStatus,
+      updatedAt: new Date().toISOString()
+    }).catch(async (error) => {
+      const permissionError = new FirestorePermissionError({
+        path: itemRef.path,
+        operation: 'update',
+        requestResourceData: { isAvailable: !currentStatus }
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
+  }
+
   const publicUrl = vendor && origin ? `${origin}/v/${vendor.id}` : '';
   const qrCodeUrl = publicUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(publicUrl)}` : '';
 
@@ -217,9 +234,7 @@ export default function MenuManagement() {
     );
   }
 
-  if (!user) {
-    return null; // Handled by useEffect redirect
-  }
+  if (!user) return null;
 
   if (!vendor && !isVendorsLoading) {
     return (
@@ -436,21 +451,33 @@ export default function MenuManagement() {
                           src={item.imageUrl}
                           alt={item.name}
                           fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-500"
+                          className={`object-cover group-hover:scale-105 transition-all duration-500 ${!item.isAvailable ? 'grayscale opacity-50' : ''}`}
                         />
                         <div className="absolute top-2 left-2 px-2 py-1 bg-white/90 backdrop-blur-sm rounded-lg text-xs font-bold text-primary shadow-sm border border-primary/10">
                           {item.category}
                         </div>
+                        {!item.isAvailable && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
+                            <span className="bg-destructive text-destructive-foreground px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest">Out of Stock</span>
+                          </div>
+                        )}
                       </div>
                       <div className="flex-1 p-6 flex flex-col justify-between">
                         <div>
                           <div className="flex justify-between items-start mb-2">
-                            <h3 className="text-xl font-bold">{item.name}</h3>
+                            <h3 className={`text-xl font-bold ${!item.isAvailable ? 'text-muted-foreground' : ''}`}>{item.name}</h3>
                             <p className="text-lg font-extrabold text-primary">₹{item.price}</p>
                           </div>
                           <p className="text-sm text-muted-foreground line-clamp-2 mb-4 leading-relaxed">{item.description}</p>
                         </div>
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-between items-center pt-4 border-t">
+                          <div className="flex items-center gap-3">
+                            <Switch 
+                              checked={item.isAvailable} 
+                              onCheckedChange={() => toggleAvailability(item.id, item.isAvailable)}
+                            />
+                            <Label className="text-sm font-medium">Available</Label>
+                          </div>
                           <Button 
                             variant="outline" 
                             size="sm" 
