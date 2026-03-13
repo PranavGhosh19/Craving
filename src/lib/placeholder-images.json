@@ -1,3 +1,16 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero-food",
+      "description": "A vibrant street food stall with people ordering.",
+      "imageUrl": "https://picsum.photos/seed/street-food-1/1200/800",
+      "imageHint": "street food"
+    },
+    {
+      "id": "vendor-signup",
+      "description": "A happy street food vendor showing a QR code.",
+      "imageUrl": "https://picsum.photos/seed/vendor-1/600/400",
+      "imageHint": "vendor qr"
+    }
+  ]
 }
