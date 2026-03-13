@@ -1,13 +1,12 @@
-
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Utensils, IndianRupee, Image as ImageIcon, Sparkles, Plus, Loader2, Trash2, Tag } from 'lucide-react';
+import { Utensils, IndianRupee, Image as ImageIcon, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X } from 'lucide-react';
 import { collection, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -32,7 +31,7 @@ const menuItemSchema = z.object({
   price: z.coerce.number().min(1, "Price must be greater than 0."),
   description: z.string().min(10, "Description should be at least 10 characters."),
   category: z.string().min(2, "Category is required."),
-  imageUrl: z.string().url("Please enter a valid image URL.").optional().or(z.literal('')),
+  imageUrl: z.string().optional().or(z.literal('')),
 });
 
 type MenuItemValues = z.infer<typeof menuItemSchema>;
@@ -43,8 +42,9 @@ export default function MenuManagement() {
   const { user, isUserLoading } = useUser();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Find the vendor document for this user
   const vendorsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
     return query(collection(firestore, 'vendors'), where('ownerId', '==', user.uid));
@@ -53,7 +53,6 @@ export default function MenuManagement() {
   const { data: vendors, isLoading: isVendorsLoading } = useCollection(vendorsQuery);
   const vendor = vendors?.[0];
 
-  // 2. Get menu items for this vendor
   const menuItemsQuery = useMemoFirebase(() => {
     if (!firestore || !vendor?.id) return null;
     return collection(firestore, 'vendors', vendor.id, 'menuItems');
@@ -71,6 +70,33 @@ export default function MenuManagement() {
       imageUrl: "",
     },
   });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 1024 * 1024) { // 1MB limit for base64 storage in Firestore
+        toast({
+          variant: "destructive",
+          title: "File too large",
+          description: "Please upload an image smaller than 1MB.",
+        });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setImagePreview(base64String);
+        form.setValue('imageUrl', base64String);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearImage = () => {
+    setImagePreview(null);
+    form.setValue('imageUrl', '');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   async function handleGenerateDescription() {
     const dishName = form.getValues('name');
@@ -129,6 +155,8 @@ export default function MenuManagement() {
         description: `${values.name} has been added to your menu.`,
       });
       form.reset();
+      setImagePreview(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -177,7 +205,6 @@ export default function MenuManagement() {
       <Navbar />
       <main className="container mx-auto px-4 py-12">
         <div className="flex flex-col lg:flex-row gap-12">
-          {/* Add Item Form */}
           <div className="w-full lg:w-1/3">
             <Card className="shadow-xl rounded-[2rem] border-primary/10 sticky top-24">
               <CardHeader>
@@ -264,23 +291,57 @@ export default function MenuManagement() {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="imageUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Image URL (Optional)</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input placeholder="https://..." {...field} className="pl-9 rounded-xl" />
-                            </div>
-                          </FormControl>
-                          <FormDescription>Leave blank for a placeholder.</FormDescription>
-                          <FormMessage />
-                        </FormItem>
+                    <div className="space-y-4">
+                      <FormLabel>Dish Image</FormLabel>
+                      {imagePreview ? (
+                        <div className="relative rounded-xl overflow-hidden aspect-video border-2 border-primary/20 group">
+                          <Image src={imagePreview} alt="Preview" fill className="object-cover" />
+                          <button 
+                            type="button"
+                            onClick={clearImage}
+                            className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div 
+                          onClick={() => fileInputRef.current?.click()}
+                          className="border-2 border-dashed border-primary/20 rounded-xl aspect-video flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-primary/5 transition-colors group"
+                        >
+                          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                            <Upload className="h-6 w-6" />
+                          </div>
+                          <div className="text-center">
+                            <p className="text-sm font-bold">Upload from local</p>
+                            <p className="text-xs text-muted-foreground">PNG, JPG up to 1MB</p>
+                          </div>
+                        </div>
                       )}
-                    />
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleFileChange} 
+                        accept="image/*" 
+                        className="hidden" 
+                      />
+                      <FormField
+                        control={form.control}
+                        name="imageUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Or use an Image URL</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                <Input placeholder="https://..." {...field} className="pl-8 h-8 text-xs rounded-lg" />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                     <Button type="submit" className="w-full h-12 rounded-xl font-bold" disabled={isAdding}>
                       {isAdding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                       Add to Menu
@@ -291,7 +352,6 @@ export default function MenuManagement() {
             </Card>
           </div>
 
-          {/* Menu Items List */}
           <div className="w-full lg:w-2/3">
             <div className="flex items-center justify-between mb-8">
               <div>
@@ -310,7 +370,7 @@ export default function MenuManagement() {
                 {menuItems.map((item) => (
                   <Card key={item.id} className="overflow-hidden shadow-md hover:shadow-lg transition-shadow border-primary/5 group">
                     <div className="flex flex-col sm:flex-row">
-                      <div className="relative w-full sm:w-48 h-48 sm:h-auto overflow-hidden">
+                      <div className="relative w-full sm:w-48 h-48 sm:h-auto overflow-hidden bg-muted">
                         <Image 
                           src={item.imageUrl || `https://picsum.photos/seed/${item.id}/400/300`}
                           alt={item.name}
