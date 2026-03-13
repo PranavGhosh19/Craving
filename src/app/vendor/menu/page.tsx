@@ -20,6 +20,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
@@ -344,7 +345,7 @@ export default function MenuManagement() {
                       )}
                     />
                     <div className="space-y-4">
-                      <FormLabel>Dish Image</FormLabel>
+                      <Label>Dish Image</Label>
                       {imagePreview ? (
                         <div className="relative rounded-xl overflow-hidden aspect-video border-2 border-primary/20 group">
                           <Image src={imagePreview} alt="Preview" fill className="object-cover" />
