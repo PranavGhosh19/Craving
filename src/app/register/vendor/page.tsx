@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Store, Phone, FileText, BadgeCheck, Loader2, Key, CheckCircle } from 'lucide-react';
+import { Store, Phone, FileText, BadgeCheck, Loader2, Key, CheckCircle, AlertCircle } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { useFirestore, useAuth } from '@/firebase';
@@ -51,16 +51,35 @@ export default function VendorSignUp() {
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [verificationCode, setVerificationCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
+  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
-    if (auth && !window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': () => {
-          // reCAPTCHA solved, allow signInWithPhoneNumber.
-        }
-      });
+    if (auth && !recaptchaVerifierRef.current) {
+      try {
+        recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          'size': 'invisible',
+          'callback': () => {
+            // reCAPTCHA solved
+          },
+          'expired-callback': () => {
+            toast({
+              variant: "destructive",
+              title: "Verification Expired",
+              description: "Please try sending the code again.",
+            });
+          }
+        });
+      } catch (error) {
+        console.error("reCAPTCHA initialization failed", error);
+      }
     }
+
+    return () => {
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
+        recaptchaVerifierRef.current = null;
+      }
+    };
   }, [auth]);
 
   const form = useForm<VendorFormValues>({
@@ -74,14 +93,21 @@ export default function VendorSignUp() {
   });
 
   async function onSendOTP(values: VendorFormValues) {
-    if (!auth || !window.recaptchaVerifier) return;
+    if (!auth || !recaptchaVerifierRef.current) {
+      toast({
+        variant: "destructive",
+        title: "System Error",
+        description: "Verification system not ready. Please refresh.",
+      });
+      return;
+    }
     setIsSubmitting(true);
 
     try {
       const confirmation = await signInWithPhoneNumber(
         auth, 
         values.phoneNumber, 
-        window.recaptchaVerifier
+        recaptchaVerifierRef.current
       );
       setConfirmationResult(confirmation);
       toast({
@@ -95,12 +121,12 @@ export default function VendorSignUp() {
         title: "Failed to send OTP",
         description: error.message || "Please ensure the phone number is correct and try again.",
       });
-      // Reset reCAPTCHA if it fails
-      if (window.recaptchaVerifier) {
-        window.recaptchaVerifier.render().then(widgetId => {
-          if (window.grecaptcha) {
-             window.grecaptcha.reset(widgetId);
-          }
+      
+      // Reset reCAPTCHA on failure
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
+        recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          'size': 'invisible'
         });
       }
     } finally {
@@ -304,11 +330,4 @@ export default function VendorSignUp() {
       </main>
     </div>
   );
-}
-
-declare global {
-  interface Window {
-    recaptchaVerifier: RecaptchaVerifier;
-    grecaptcha: any;
-  }
 }
