@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X, ExternalLink, Eye, Store } from 'lucide-react';
+import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X, ExternalLink, Eye, Store, QrCode, Download } from 'lucide-react';
 import { collection, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,12 @@ export default function MenuManagement() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [origin, setOrigin] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   const vendorsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
@@ -179,6 +184,9 @@ export default function MenuManagement() {
     }
   }
 
+  const publicUrl = vendor ? `${origin}/v/${vendor.id}` : '';
+  const qrCodeUrl = publicUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(publicUrl)}` : '';
+
   if (isUserLoading || isVendorsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -206,30 +214,57 @@ export default function MenuManagement() {
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
       <main className="container mx-auto px-4 py-12">
-        <div className="flex flex-col lg:flex-row gap-12">
-          {/* Form Column */}
-          <div className="w-full lg:w-1/3">
-            <Card className="shadow-xl rounded-[2rem] border-primary/10 sticky top-24">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Plus className="h-6 w-6 text-primary" />
-                    Add Menu Item
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Form & QR Column */}
+          <div className="w-full lg:w-1/3 space-y-8">
+            {/* QR Code Card */}
+            {vendor && (
+              <Card className="shadow-xl rounded-[2rem] border-primary/10 overflow-hidden bg-white">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <QrCode className="h-6 w-6 text-primary" />
+                    Stall QR Code
                   </CardTitle>
-                </div>
+                  <CardDescription>Customers scan this to view your menu.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center gap-6 p-6">
+                  <div className="relative p-4 bg-white rounded-3xl border-4 border-primary/5 shadow-inner">
+                    {qrCodeUrl ? (
+                      <img src={qrCodeUrl} alt="Stall QR Code" className="w-48 h-48" />
+                    ) : (
+                      <div className="w-48 h-48 flex items-center justify-center bg-muted rounded-xl">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary/20" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="w-full space-y-3">
+                    <Button variant="outline" className="w-full h-12 rounded-xl font-bold border-primary text-primary hover:bg-primary/5 gap-2" asChild>
+                      <a href={qrCodeUrl} download={`qr-${vendor.name}.png`} target="_blank" rel="noopener noreferrer">
+                        <Download className="h-4 w-4" />
+                        Download QR Code
+                      </a>
+                    </Button>
+                    <Link href={`/v/${vendor.id}`} target="_blank">
+                      <Button variant="ghost" className="w-full h-12 rounded-xl font-bold text-muted-foreground hover:text-primary gap-2">
+                        <Eye className="h-4 w-4" />
+                        Preview Public Menu
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Add Menu Item Card */}
+            <Card className="shadow-xl rounded-[2rem] border-primary/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="h-6 w-6 text-primary" />
+                  Add Menu Item
+                </CardTitle>
                 <CardDescription>Create a new dish for your stall.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {vendor && (
-                  <Link href={`/v/${vendor.id}`} target="_blank">
-                    <Button variant="outline" className="w-full h-12 rounded-xl font-bold border-primary text-primary hover:bg-primary/5 gap-2">
-                      <Eye className="h-4 w-4" />
-                      View Naked Front-End
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                  </Link>
-                )}
-
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <FormField
