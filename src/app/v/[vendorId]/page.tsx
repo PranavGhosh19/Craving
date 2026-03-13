@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Utensils, IndianRupee, ArrowLeft, Store, Info, QrCode, Share2, MapPin, Clock, BadgeCheck, X, Maximize2 } from 'lucide-react';
+import { Utensils, ArrowLeft, BadgeCheck, QrCode, Share2, MapPin, Clock, Info, Maximize2, Star, Sparkles, Smartphone } from 'lucide-react';
 import { collection, doc } from 'firebase/firestore';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import Navbar from '@/components/Navbar';
 import { toast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 export default function PublicMenuPage() {
   const params = useParams();
@@ -80,11 +81,11 @@ export default function PublicMenuPage() {
   if (!vendor) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <Store className="h-16 w-16 text-muted-foreground mb-4 opacity-20" />
-        <h1 className="text-3xl font-extrabold font-headline mb-2">Stall Not Found</h1>
-        <p className="text-muted-foreground mb-8 text-center max-w-sm">This vendor might be offline or the link is incorrect. Please check the QR code again.</p>
+        <Utensils className="h-16 w-16 text-muted-foreground mb-4 opacity-20" />
+        <h1 className="text-3xl font-extrabold font-headline mb-2 text-center">Stall Offline or Not Found</h1>
+        <p className="text-muted-foreground mb-8 text-center max-w-sm">This digital menu link may be expired or incorrect. Scan a fresh QR code at the stall.</p>
         <Button onClick={() => router.push('/browse')} size="lg" className="rounded-2xl px-8 font-bold">
-          Browse Other Stalls
+          Explore Other Stalls
         </Button>
       </div>
     );
@@ -94,17 +95,17 @@ export default function PublicMenuPage() {
     <div className="min-h-screen bg-background pb-24">
       <Navbar />
       
-      {/* Hero Header */}
-      <div className="relative h-[350px] md:h-[450px] w-full bg-primary overflow-hidden">
+      {/* Dynamic Header */}
+      <div className="relative h-[400px] md:h-[500px] w-full bg-primary overflow-hidden">
         <Image 
           src={vendor.profileImageUrl || `https://picsum.photos/seed/${vendor.id}-stall/1200/600`} 
           alt={vendor.name}
           fill
-          className="object-cover opacity-70 mix-blend-overlay"
+          className="object-cover opacity-80 mix-blend-overlay"
           priority
           data-ai-hint="street food stall"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-black/40 to-transparent" />
         
         <div className="absolute top-8 left-8">
           <Button 
@@ -116,62 +117,64 @@ export default function PublicMenuPage() {
           </Button>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 container mx-auto px-4 pb-12">
+        <div className="absolute bottom-0 left-0 right-0 container mx-auto px-4 pb-16">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <Badge className="bg-green-500 text-white font-bold px-3 py-1 shadow-lg border-none flex gap-1.5 items-center">
+            <div className="space-y-4 max-w-2xl">
+              <div className="flex flex-wrap gap-2">
+                <Badge className="bg-green-500 text-white font-bold px-4 py-1.5 shadow-xl border-none flex gap-2 items-center rounded-xl">
                   <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-                  Open Now
+                  Live Menu
                 </Badge>
-                <Badge variant="secondary" className="bg-white/90 text-primary font-bold shadow-lg border-none flex gap-1.5 items-center">
-                  <BadgeCheck className="h-3.5 w-3.5" />
-                  FSSAI Verified
+                <Badge variant="secondary" className="bg-white/90 text-primary font-bold shadow-xl border-none flex gap-2 items-center rounded-xl">
+                  <BadgeCheck className="h-4 w-4" />
+                  Verified Vendor
                 </Badge>
               </div>
-              <h1 className="text-5xl md:text-7xl font-extrabold font-headline text-foreground drop-shadow-sm tracking-tight">{vendor.name}</h1>
-              <div className="flex flex-wrap items-center gap-6 text-muted-foreground font-medium">
+              <h1 className="text-5xl md:text-8xl font-black font-headline text-foreground drop-shadow-md tracking-tight leading-none uppercase italic">
+                {vendor.name}
+              </h1>
+              <div className="flex flex-wrap items-center gap-8 text-foreground/80 font-bold text-lg">
                 <p className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-primary" />
+                  <MapPin className="h-6 w-6 text-primary" />
                   {vendor.locationDescription || 'Local Favorite'}
                 </p>
-                <p className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-primary" />
-                  8:00 AM - 10:00 PM
-                </p>
+                <div className="flex items-center gap-1 text-primary">
+                  {[1, 2, 3, 4, 5].map(i => <Star key={i} className="h-5 w-5 fill-current" />)}
+                  <span className="ml-2 text-foreground font-medium text-base">4.9 (120+ reviews)</span>
+                </div>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-4">
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="bg-white/80 backdrop-blur-sm border-primary/10 hover:bg-white gap-2 rounded-2xl h-14 px-8 font-bold shadow-xl transition-all hover:scale-105 active:scale-95">
-                    <QrCode className="h-5 w-5 text-primary" />
-                    Show QR
+                  <Button variant="outline" className="bg-white/95 backdrop-blur-sm border-none hover:bg-white gap-3 rounded-[1.5rem] h-16 px-10 font-bold shadow-2xl transition-all hover:scale-105 active:scale-95 text-primary">
+                    <QrCode className="h-6 w-6" />
+                    Stall QR
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="rounded-[3rem] max-w-sm">
-                  <DialogHeader>
-                    <DialogTitle className="text-center font-headline text-2xl font-bold">Stall QR Code</DialogTitle>
-                    <DialogDescription className="text-center">
-                      Others can scan this to see the menu for {vendor.name}
+                <DialogContent className="rounded-[3rem] max-w-sm p-10">
+                  <DialogHeader className="mb-6">
+                    <DialogTitle className="text-center font-headline text-3xl font-black uppercase italic">Stall Access</DialogTitle>
+                    <DialogDescription className="text-center text-lg">
+                      Scan this to view {vendor.name} menu instantly.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="flex flex-col items-center gap-6 py-6">
-                    <div className="p-4 bg-white rounded-[2rem] border-4 border-primary/5 shadow-inner">
+                  <div className="flex flex-col items-center gap-8">
+                    <div className="p-6 bg-white rounded-[2.5rem] border-8 border-primary/5 shadow-inner">
                       {qrCodeUrl ? (
                         <img src={qrCodeUrl} alt="Stall QR" className="w-64 h-64" />
                       ) : (
                         <Skeleton className="w-64 h-64 rounded-2xl" />
                       )}
                     </div>
-                    <Button variant="outline" className="w-full rounded-xl" asChild>
-                      <a href={qrCodeUrl} download={`${vendor.name}-QR.png`}>Download QR</a>
+                    <Button className="w-full h-14 rounded-2xl font-bold bg-primary text-white text-lg shadow-lg shadow-primary/30" asChild>
+                      <a href={qrCodeUrl} download={`${vendor.name}-QR.png`}>Save Code</a>
                     </Button>
                   </div>
                 </DialogContent>
               </Dialog>
-              <Button onClick={handleShare} variant="outline" className="bg-white/80 backdrop-blur-sm border-primary/10 hover:bg-white gap-2 rounded-2xl h-14 px-8 font-bold shadow-xl transition-all hover:scale-105 active:scale-95">
-                <Share2 className="h-5 w-5 text-primary" />
+              <Button onClick={handleShare} className="bg-foreground text-white hover:bg-foreground/90 gap-3 rounded-[1.5rem] h-16 px-10 font-bold shadow-2xl transition-all hover:scale-105 active:scale-95">
+                <Share2 className="h-6 w-6" />
                 Share
               </Button>
             </div>
@@ -179,142 +182,140 @@ export default function PublicMenuPage() {
         </div>
       </div>
 
-      <main className="container mx-auto px-4 py-16">
-        <div className="grid gap-16 lg:grid-cols-4">
-          {/* Sidebar Info */}
-          <div className="lg:col-span-1 space-y-10">
-            <Card className="rounded-[2.5rem] border-primary/5 overflow-hidden bg-white shadow-xl">
-              <CardContent className="p-8 space-y-8">
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
-                    <Info className="h-4 w-4 text-primary" /> Our Story
-                  </h3>
-                  <p className="text-base leading-relaxed text-muted-foreground italic">
-                    &ldquo;{vendor.description || 'Serving authentic street food flavors, crafted with secret family recipes and the freshest ingredients since we opened our stall.'}&rdquo;
-                  </p>
-                </div>
-                
-                <div className="pt-8 border-t">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                      <QrCode className="h-4 w-4 text-primary" /> Scan to Order
-                    </h3>
-                  </div>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <div className="bg-muted/30 p-5 rounded-[2rem] border border-primary/5 shadow-inner mb-4 flex justify-center group cursor-pointer hover:bg-white transition-colors duration-500 relative">
-                        {qrCodeUrl ? (
-                          <img src={qrCodeUrl} alt="Stall QR" className="w-40 h-40 group-hover:scale-105 transition-transform" />
-                        ) : (
-                          <Skeleton className="w-40 h-40 rounded-2xl" />
-                        )}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 flex items-center justify-center transition-colors rounded-[2rem]">
-                          <Maximize2 className="text-white opacity-0 group-hover:opacity-100 h-8 w-8 drop-shadow-lg" />
-                        </div>
-                      </div>
-                    </DialogTrigger>
-                    <DialogContent className="rounded-[3rem] max-w-sm">
-                      <div className="flex flex-col items-center gap-6 py-6">
-                        <img src={qrCodeUrl} alt="Stall QR Large" className="w-72 h-72" />
-                        <p className="font-bold font-headline text-lg text-center">Scan to open digital menu</p>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  <p className="text-xs text-center text-muted-foreground px-4 leading-relaxed">
-                    Point your camera here to see our full menu and prices instantly on your phone.
-                  </p>
-                </div>
+      <main className="container mx-auto px-4 py-20">
+        <div className="grid gap-20 lg:grid-cols-4">
+          {/* Information & Context */}
+          <div className="lg:col-span-1 space-y-12">
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <h3 className="text-lg font-black uppercase italic tracking-tighter text-primary flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" /> About Us
+                </h3>
+                <p className="text-xl leading-relaxed text-muted-foreground font-medium italic">
+                  &ldquo;{vendor.description || 'Authentic local street food experience, serving fresh flavors since day one. Every dish is prepared with passion and tradition.'}&rdquo;
+                </p>
+              </div>
 
-                <div className="pt-8 border-t">
-                  <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Credentials</h3>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between items-center p-3 bg-primary/5 rounded-xl">
-                      <span className="text-muted-foreground font-medium">GSTIN</span>
-                      <span className="font-bold text-primary">{vendor.gstNumber || 'PROIFIED'}</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-primary/5 rounded-xl">
-                      <span className="text-muted-foreground font-medium">FSSAI No.</span>
-                      <span className="font-bold text-primary">{vendor.fssaiNumber || 'CERTIFIED'}</span>
-                    </div>
+              <div className="p-8 bg-primary/5 rounded-[2.5rem] border border-primary/10 space-y-6">
+                 <h4 className="font-black uppercase tracking-tight flex items-center gap-2">
+                   <Smartphone className="h-5 w-5 text-primary" /> Scan to Order
+                 </h4>
+                 <div className="flex justify-center bg-white p-4 rounded-[1.5rem] shadow-sm">
+                   {qrCodeUrl ? (
+                     <img src={qrCodeUrl} alt="Mini QR" className="w-32 h-32" />
+                   ) : (
+                     <Skeleton className="w-32 h-32 rounded-xl" />
+                   )}
+                 </div>
+                 <p className="text-sm text-center text-muted-foreground font-medium">
+                   Quick access for your companions. Scan this screen to see the menu.
+                 </p>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Operating Info</h3>
+                <div className="grid gap-3">
+                  <div className="flex justify-between p-4 bg-muted/50 rounded-2xl font-bold">
+                    <span className="text-muted-foreground">GST</span>
+                    <span className="text-primary">{vendor.gstNumber || 'VERIFIED'}</span>
+                  </div>
+                  <div className="flex justify-between p-4 bg-muted/50 rounded-2xl font-bold">
+                    <span className="text-muted-foreground">FSSAI</span>
+                    <span className="text-primary">{vendor.fssaiNumber || 'CERTIFIED'}</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
 
-          {/* Menu Items */}
+          {/* Menu Highlights */}
           <div className="lg:col-span-3">
-            <div className="flex items-center justify-between mb-12 border-b pb-6">
-              <div className="space-y-1">
-                <h2 className="text-4xl font-extrabold font-headline">Full Menu</h2>
-                <p className="text-muted-foreground">Freshly prepared for you</p>
+            <div className="flex items-center justify-between mb-16 border-b-4 border-primary/10 pb-8">
+              <div className="space-y-2">
+                <h2 className="text-5xl font-black font-headline uppercase italic tracking-tighter">The Menu</h2>
+                <p className="text-muted-foreground text-lg font-medium">Freshly crafted street specialties</p>
               </div>
-              <Badge variant="outline" className="rounded-xl bg-white px-6 py-2 text-lg font-bold shadow-sm border-primary/10">
-                {menuItems?.length || 0} Specialties
+              <Badge variant="outline" className="rounded-2xl bg-white px-8 py-3 text-xl font-black shadow-xl border-primary/20 text-primary italic">
+                {menuItems?.length || 0} Dishes
               </Badge>
             </div>
 
             {isMenuLoading ? (
-              <div className="grid gap-10 sm:grid-cols-2">
-                {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-80 rounded-[2.5rem]" />)}
+              <div className="grid gap-12 sm:grid-cols-2">
+                {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-96 rounded-[3rem]" />)}
               </div>
             ) : menuItems && menuItems.length > 0 ? (
-              <div className="grid gap-8 sm:grid-cols-2">
+              <div className="grid gap-10 sm:grid-cols-2">
                 {menuItems.map((item) => (
-                  <Card key={item.id} className="group overflow-hidden rounded-[2.5rem] border-none shadow-lg hover:shadow-2xl transition-all duration-500 bg-white flex flex-col">
-                    <div className="relative h-64 w-full overflow-hidden">
+                  <Card key={item.id} className="group overflow-hidden rounded-[3rem] border-none shadow-xl hover:shadow-2xl transition-all duration-500 bg-white flex flex-col border border-primary/5">
+                    <div className="relative h-72 w-full overflow-hidden">
                       <Image 
                         src={item.imageUrl} 
                         alt={item.name}
                         fill
-                        className={`object-cover group-hover:scale-110 transition-transform duration-700 ${!item.isAvailable ? 'grayscale blur-[2px] opacity-60' : ''}`}
+                        className={`object-cover group-hover:scale-110 transition-transform duration-1000 ${!item.isAvailable ? 'grayscale blur-sm opacity-50' : ''}`}
                         data-ai-hint="street food dish"
                       />
-                      <div className="absolute top-5 right-5">
-                        <Badge className={`${item.isAvailable ? 'bg-white/95 text-primary hover:bg-white' : 'bg-destructive/90 text-white'} font-bold text-xl px-5 py-2 shadow-2xl rounded-2xl border-none`}>
+                      <div className="absolute top-6 right-6">
+                        <Badge className={`${item.isAvailable ? 'bg-white/95 text-primary hover:bg-white' : 'bg-destructive/90 text-white'} font-black text-2xl px-6 py-2 shadow-2xl rounded-2xl border-none italic`}>
                           {item.isAvailable ? `₹${item.price}` : 'Sold Out'}
                         </Badge>
                       </div>
                       {!item.isAvailable && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
-                          <Badge variant="destructive" className="h-12 px-8 rounded-full text-sm font-bold uppercase tracking-widest shadow-2xl border-2 border-white/20">Currently Unavailable</Badge>
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-md">
+                          <Badge variant="destructive" className="h-16 px-10 rounded-full text-lg font-black uppercase italic tracking-widest shadow-2xl border-4 border-white/20">Sold Out</Badge>
                         </div>
                       )}
-                      <div className="absolute top-5 left-5">
-                        <Badge className="bg-primary text-white font-bold px-4 py-1.5 rounded-xl shadow-lg border-none text-xs uppercase tracking-widest">
+                      <div className="absolute bottom-6 left-6">
+                        <Badge className="bg-primary text-white font-black px-6 py-2 rounded-xl shadow-2xl border-none text-sm uppercase tracking-widest italic">
                           {item.category}
                         </Badge>
                       </div>
                     </div>
-                    <CardContent className="p-8 space-y-4 flex-1 flex flex-col justify-between">
-                      <div className="space-y-3">
-                        <h3 className={`text-2xl font-extrabold transition-colors font-headline leading-tight ${item.isAvailable ? 'group-hover:text-primary' : 'text-muted-foreground'}`}>
+                    <CardContent className="p-10 space-y-6 flex-1 flex flex-col justify-between">
+                      <div className="space-y-4">
+                        <h3 className={`text-3xl font-black transition-colors font-headline leading-none uppercase italic ${item.isAvailable ? 'group-hover:text-primary' : 'text-muted-foreground'}`}>
                           {item.name}
                         </h3>
-                        <p className="text-base text-muted-foreground line-clamp-3 leading-relaxed">
+                        <p className="text-lg text-muted-foreground line-clamp-3 leading-relaxed font-medium">
                           {item.description}
                         </p>
                       </div>
                       <Button 
                         disabled={!item.isAvailable}
-                        className={`w-full mt-6 font-bold rounded-2xl h-14 text-lg transition-all shadow-xl active:scale-95 ${item.isAvailable ? 'bg-primary text-white hover:bg-primary/90 shadow-primary/20 group-hover:shadow-primary/40' : 'bg-muted text-muted-foreground shadow-none'}`}
+                        className={`w-full mt-8 font-black rounded-[1.5rem] h-16 text-xl uppercase italic tracking-widest transition-all shadow-2xl active:scale-95 ${item.isAvailable ? 'bg-primary text-white hover:bg-primary/90 shadow-primary/30' : 'bg-muted text-muted-foreground shadow-none'}`}
                       >
-                        {item.isAvailable ? 'Place Order' : 'Notify When Back'}
+                        {item.isAvailable ? 'Quick Order' : 'Unavailable'}
                       </Button>
                     </CardContent>
                   </Card>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-32 bg-muted/20 rounded-[3rem] border-2 border-dashed border-primary/10">
-                <Utensils className="mx-auto h-20 w-20 text-muted-foreground mb-6 opacity-10" />
-                <h3 className="text-2xl font-bold text-muted-foreground">Our menu is coming soon</h3>
-                <p className="text-muted-foreground max-w-sm mx-auto mt-2">The vendor is currently busy preparing some delicious updates for you!</p>
+              <div className="text-center py-40 bg-muted/20 rounded-[4rem] border-4 border-dashed border-primary/10">
+                <Utensils className="mx-auto h-24 w-24 text-muted-foreground mb-8 opacity-10" />
+                <h3 className="text-3xl font-black uppercase italic tracking-tighter text-muted-foreground">Menu Coming Soon</h3>
+                <p className="text-muted-foreground max-w-sm mx-auto mt-4 text-lg font-medium">The vendor is currently updating their digital specialties. Check back shortly!</p>
               </div>
             )}
           </div>
         </div>
       </main>
+
+      {/* Footer Branding */}
+      <section className="container mx-auto px-4 mt-20">
+         <div className="bg-foreground text-white rounded-[3rem] p-12 flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl">
+            <div className="space-y-2">
+               <h4 className="text-3xl font-black uppercase italic tracking-tighter">Are you a street vendor?</h4>
+               <p className="text-white/70 font-medium">Get your own smart QR menu in less than 2 minutes.</p>
+            </div>
+            <Link href="/register/vendor">
+              <Button size="lg" className="bg-primary text-white h-16 px-12 rounded-[1.5rem] font-black uppercase italic tracking-widest hover:scale-105 transition-transform text-lg shadow-xl shadow-primary/20">
+                Join Craving
+              </Button>
+            </Link>
+         </div>
+      </section>
     </div>
   );
 }
