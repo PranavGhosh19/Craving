@@ -59,9 +59,7 @@ export default function VendorSignUp() {
       try {
         recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
           'size': 'invisible',
-          'callback': () => {
-            // reCAPTCHA solved
-          },
+          'callback': () => {},
           'expired-callback': () => {
             toast({
               variant: "destructive",
@@ -120,10 +118,9 @@ export default function VendorSignUp() {
       toast({
         variant: "destructive",
         title: "Failed to send OTP",
-        description: error.message || "Please ensure the phone number is correct and try again.",
+        description: error.message || "Please ensure the phone number is correct.",
       });
       
-      // Reset reCAPTCHA on failure
       if (recaptchaVerifierRef.current) {
         recaptchaVerifierRef.current.clear();
         recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
@@ -146,8 +143,10 @@ export default function VendorSignUp() {
 
       const vendorId = `vendor-${user.uid}`;
       const vendorRef = doc(firestore, 'vendors', vendorId);
-      const publicUrl = `${window.location.origin}/v/${vendorId}`;
-      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(publicUrl)}`;
+      
+      // Construct the absolute public URL for the menu
+      const publicMenuUrl = `${window.location.origin}/v/${vendorId}`;
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(publicMenuUrl)}`;
 
       await setDoc(vendorRef, {
         id: vendorId,
@@ -163,8 +162,8 @@ export default function VendorSignUp() {
       });
 
       toast({
-        title: "Registration Successful!",
-        description: "Your stall is ready. Now let's build your menu!",
+        title: "Welcome aboard!",
+        description: "Your digital stall is live. Let's add your first dish.",
       });
       
       router.push(`/vendor/menu`); 
@@ -172,7 +171,7 @@ export default function VendorSignUp() {
       toast({
         variant: "destructive",
         title: "Verification Error",
-        description: error.message || "Invalid OTP. Please try again.",
+        description: "Invalid OTP. Please try again.",
       });
     } finally {
       setIsVerifying(false);
@@ -193,7 +192,7 @@ export default function VendorSignUp() {
             <CardDescription className="text-base">
               {confirmationResult 
                 ? "Enter the code sent to your phone." 
-                : "Join Craving and start accepting digital orders today."}
+                : "Join Craving and digitize your street food stall."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -239,7 +238,7 @@ export default function VendorSignUp() {
                       <FormItem>
                         <FormLabel className="flex items-center gap-2">
                           <BadgeCheck className="h-4 w-4 text-primary" />
-                          FSSAI License Number
+                          FSSAI Number
                         </FormLabel>
                         <FormControl>
                           <Input placeholder="14-digit FSSAI number" {...field} className="rounded-xl h-12" />
@@ -255,7 +254,7 @@ export default function VendorSignUp() {
                       <FormItem>
                         <FormLabel className="flex items-center gap-2">
                           <Phone className="h-4 w-4 text-primary" />
-                          Phone Number (E.164)
+                          Mobile Number (E.164)
                         </FormLabel>
                         <FormControl>
                           <Input placeholder="+919876543210" {...field} className="rounded-xl h-12" />
@@ -274,12 +273,9 @@ export default function VendorSignUp() {
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Sending OTP...
-                      </>
+                      <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
-                      "Send Verification Code"
+                      "Verify Mobile Number"
                     )}
                   </Button>
                 </form>
@@ -287,7 +283,7 @@ export default function VendorSignUp() {
             ) : (
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
+                  <Label className="flex items-center gap-2 mb-2">
                     <Key className="h-4 w-4 text-primary" />
                     Enter 6-digit OTP
                   </Label>
@@ -306,15 +302,9 @@ export default function VendorSignUp() {
                   disabled={isVerifying || verificationCode.length !== 6}
                 >
                   {isVerifying ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Verifying...
-                    </>
+                    <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
-                    <>
-                      <CheckCircle className="mr-2 h-5 w-5" />
-                      Verify & Complete
-                    </>
+                    "Complete Registration"
                   )}
                 </Button>
                 <Button 
@@ -328,7 +318,7 @@ export default function VendorSignUp() {
             )}
           </CardContent>
           <CardFooter className="pb-8 pt-2 flex justify-center text-sm text-muted-foreground">
-            By registering, you agree to our Terms of Service.
+            By registering, you agree to our Terms.
           </CardFooter>
         </Card>
       </main>

@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X, Eye, Store, QrCode, Download } from 'lucide-react';
+import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X, Eye, Store, QrCode, Download, Share2 } from 'lucide-react';
 import { collection, query, where, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -94,7 +94,7 @@ export default function MenuManagement() {
         toast({
           variant: "destructive",
           title: "File too large",
-          description: "Please upload an image smaller than 1MB.",
+          description: "Max 1MB allowed.",
         });
         return;
       }
@@ -120,8 +120,8 @@ export default function MenuManagement() {
     if (!dishName) {
       toast({
         variant: "destructive",
-        title: "Missing Name",
-        description: "Please enter a dish name first to generate a description.",
+        title: "Name required",
+        description: "Enter a dish name first.",
       });
       return;
     }
@@ -130,17 +130,8 @@ export default function MenuManagement() {
     try {
       const result = await generateDishDescription({ dishName });
       form.setValue('description', result.dishDescription);
-      toast({
-        title: "AI Description Generated!",
-        description: "A mouth-watering description has been added.",
-      });
     } catch (error) {
       console.error(error);
-      toast({
-        variant: "destructive",
-        title: "AI Generation Failed",
-        description: "Could not generate description at this time.",
-      });
     } finally {
       setIsGenerating(false);
     }
@@ -168,63 +159,22 @@ export default function MenuManagement() {
 
     setDoc(itemRef, itemData)
       .then(() => {
-        toast({
-          title: "Item Added",
-          description: `${values.name} has been added to your menu.`,
-        });
+        toast({ title: "Item Added" });
         form.reset();
         setImagePreview(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
       })
-      .catch(async (error) => {
-        const permissionError = new FirestorePermissionError({
+      .catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: itemRef.path,
           operation: 'create',
           requestResourceData: itemData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        }));
       })
-      .finally(() => {
-        setIsAdding(false);
-      });
-  }
-
-  async function handleDelete(itemId: string) {
-    if (!firestore || !vendor?.id) return;
-    const itemRef = doc(firestore, 'vendors', vendor.id, 'menuItems', itemId);
-    
-    deleteDoc(itemRef)
-      .then(() => {
-        toast({ title: "Item deleted" });
-      })
-      .catch(async (error) => {
-        const permissionError = new FirestorePermissionError({
-          path: itemRef.path,
-          operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      });
-  }
-
-  async function toggleAvailability(itemId: string, currentStatus: boolean) {
-    if (!firestore || !vendor?.id) return;
-    const itemRef = doc(firestore, 'vendors', vendor.id, 'menuItems', itemId);
-    
-    updateDoc(itemRef, {
-      isAvailable: !currentStatus,
-      updatedAt: new Date().toISOString()
-    }).catch(async (error) => {
-      const permissionError = new FirestorePermissionError({
-        path: itemRef.path,
-        operation: 'update',
-        requestResourceData: { isAvailable: !currentStatus }
-      });
-      errorEmitter.emit('permission-error', permissionError);
-    });
+      .finally(() => setIsAdding(false));
   }
 
   const publicUrl = vendor && origin ? `${origin}/v/${vendor.id}` : '';
-  const qrCodeUrl = publicUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(publicUrl)}` : '';
+  const qrCodeUrl = publicUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(publicUrl)}` : '';
 
   if (isUserLoading || isVendorsLoading) {
     return (
@@ -236,18 +186,8 @@ export default function MenuManagement() {
 
   if (!user) return null;
 
-  if (!vendor && !isVendorsLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <Store className="h-16 w-16 text-muted-foreground mb-4 opacity-20" />
-        <h1 className="text-2xl font-bold mb-4">Vendor Profile Not Found</h1>
-        <Button onClick={() => router.push('/register/vendor')}>Register as Vendor</Button>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background">
       <Navbar />
       <main className="container mx-auto px-4 py-12">
         <div className="flex flex-col lg:flex-row gap-8">
@@ -255,35 +195,44 @@ export default function MenuManagement() {
             {vendor && (
               <Card className="shadow-xl rounded-[2rem] border-primary/10 overflow-hidden bg-white">
                 <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-xl">
+                  <CardTitle className="flex items-center gap-2 text-xl font-headline">
                     <QrCode className="h-6 w-6 text-primary" />
-                    Stall QR Code
+                    Stall QR Access
                   </CardTitle>
-                  <CardDescription>Scanning this opens your digital menu instantly.</CardDescription>
+                  <CardDescription>Scan to open: {publicUrl}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center gap-6 p-6">
                   <div className="relative p-4 bg-white rounded-3xl border-4 border-primary/5 shadow-inner">
                     {qrCodeUrl ? (
-                      <img src={qrCodeUrl} alt="Stall QR Code" className="w-48 h-48" />
+                      <img src={qrCodeUrl} alt="Stall QR" className="w-48 h-48" />
                     ) : (
-                      <div className="w-48 h-48 flex items-center justify-center bg-muted rounded-xl">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary/20" />
-                      </div>
+                      <div className="w-48 h-48 bg-muted rounded-xl animate-pulse" />
                     )}
                   </div>
                   <div className="w-full space-y-3">
                     <Button variant="outline" className="w-full h-12 rounded-xl font-bold border-primary text-primary hover:bg-primary/5 gap-2" asChild>
                       <a href={qrCodeUrl} target="_blank" rel="noopener noreferrer">
                         <Download className="h-4 w-4" />
-                        Get QR Code
+                        Download QR
                       </a>
                     </Button>
-                    <Link href={`/v/${vendor.id}`} target="_blank">
+                    <Link href={`/v/${vendor.id}`} target="_blank" className="block w-full">
                       <Button variant="ghost" className="w-full h-12 rounded-xl font-bold text-muted-foreground hover:text-primary gap-2">
                         <Eye className="h-4 w-4" />
-                        Preview Front-End
+                        View Live Menu
                       </Button>
                     </Link>
+                    <Button 
+                      variant="ghost" 
+                      className="w-full h-12 rounded-xl font-bold text-muted-foreground hover:text-primary gap-2"
+                      onClick={() => {
+                        navigator.clipboard.writeText(publicUrl);
+                        toast({ title: "Link Copied!" });
+                      }}
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Copy Menu Link
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -291,11 +240,11 @@ export default function MenuManagement() {
 
             <Card className="shadow-xl rounded-[2rem] border-primary/10">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 font-headline">
                   <Plus className="h-6 w-6 text-primary" />
-                  Add Menu Item
+                  Add Dish
                 </CardTitle>
-                <CardDescription>Create a new dish for your stall.</CardDescription>
+                <CardDescription>Expand your digital menu.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <Form {...form}>
@@ -307,7 +256,7 @@ export default function MenuManagement() {
                         <FormItem>
                           <FormLabel>Dish Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g. Masala Dosa" {...field} className="rounded-xl" />
+                            <Input placeholder="e.g. Pani Puri" {...field} className="rounded-xl h-12" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -323,7 +272,7 @@ export default function MenuManagement() {
                             <FormControl>
                               <div className="relative">
                                 <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input type="number" {...field} className="pl-9 rounded-xl" />
+                                <Input type="number" {...field} className="pl-9 rounded-xl h-12" />
                               </div>
                             </FormControl>
                             <FormMessage />
@@ -337,7 +286,7 @@ export default function MenuManagement() {
                           <FormItem>
                             <FormLabel>Category</FormLabel>
                             <FormControl>
-                              <Input placeholder="e.g. Snacks" {...field} className="rounded-xl" />
+                              <Input placeholder="Snacks" {...field} className="rounded-xl h-12" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -355,7 +304,7 @@ export default function MenuManagement() {
                               type="button" 
                               variant="ghost" 
                               size="sm" 
-                              className="h-7 text-xs font-bold text-primary gap-1 hover:text-primary hover:bg-primary/10"
+                              className="h-7 text-xs font-bold text-primary gap-1"
                               onClick={handleGenerateDescription}
                               disabled={isGenerating}
                             >
@@ -364,11 +313,7 @@ export default function MenuManagement() {
                             </Button>
                           </div>
                           <FormControl>
-                            <Textarea 
-                              placeholder="Describe the flavors..." 
-                              {...field} 
-                              className="rounded-xl min-h-[100px]" 
-                            />
+                            <Textarea {...field} className="rounded-xl min-h-[100px]" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -379,48 +324,18 @@ export default function MenuManagement() {
                       {imagePreview ? (
                         <div className="relative rounded-xl overflow-hidden aspect-video border-2 border-primary/20 group">
                           <Image src={imagePreview} alt="Preview" fill className="object-cover" />
-                          <button 
-                            type="button"
-                            onClick={clearImage}
-                            className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
+                          <button type="button" onClick={clearImage} className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100"><X className="h-4 w-4" /></button>
                         </div>
                       ) : (
-                        <div 
-                          onClick={() => fileInputRef.current?.click()}
-                          className="border-2 border-dashed border-primary/20 rounded-xl aspect-video flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-primary/5 transition-colors group"
-                        >
-                          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                            <Upload className="h-6 w-6" />
-                          </div>
-                          <div className="text-center">
-                            <p className="text-sm font-bold">Upload from local</p>
-                            <p className="text-xs text-muted-foreground">PNG, JPG up to 1MB</p>
-                          </div>
+                        <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-primary/20 rounded-xl aspect-video flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-primary/5 transition-colors">
+                          <Upload className="h-6 w-6 text-primary" />
+                          <p className="text-sm font-bold">Upload Image</p>
                         </div>
                       )}
-                      <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        onChange={handleFileChange} 
-                        accept="image/*" 
-                        className="hidden" 
-                      />
-                      <FormField
-                        control={form.control}
-                        name="imageUrl"
-                        render={() => (
-                          <FormItem>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
                     </div>
-                    <Button type="submit" className="w-full h-12 rounded-xl font-bold shadow-lg shadow-primary/20" disabled={isAdding}>
-                      {isAdding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                      Add to Menu
+                    <Button type="submit" className="w-full h-14 rounded-2xl font-bold text-lg shadow-lg shadow-primary/20" disabled={isAdding}>
+                      {isAdding ? <Loader2 className="h-5 w-5 animate-spin" /> : "Save to Menu"}
                     </Button>
                   </form>
                 </Form>
@@ -429,63 +344,36 @@ export default function MenuManagement() {
           </div>
 
           <div className="w-full lg:w-2/3">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h2 className="text-3xl font-extrabold font-headline">{vendor?.name}&apos;s Menu</h2>
-                <p className="text-muted-foreground">{menuItems?.length || 0} items currently listed</p>
-              </div>
-              <Tag className="h-8 w-8 text-primary/20" />
-            </div>
-
+            <h2 className="text-3xl font-extrabold font-headline mb-8">Dish Management</h2>
             {isMenuLoading ? (
-              <div className="flex justify-center py-20">
-                <Loader2 className="h-10 w-10 animate-spin text-primary/50" />
-              </div>
+              <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>
             ) : menuItems && menuItems.length > 0 ? (
               <div className="grid gap-6">
                 {menuItems.map((item) => (
-                  <Card key={item.id} className="overflow-hidden shadow-md hover:shadow-lg transition-shadow border-primary/5 group">
+                  <Card key={item.id} className="overflow-hidden shadow-md border-primary/5 group">
                     <div className="flex flex-col sm:flex-row">
-                      <div className="relative w-full sm:w-48 h-48 sm:h-auto overflow-hidden bg-muted">
-                        <Image 
-                          src={item.imageUrl}
-                          alt={item.name}
-                          fill
-                          className={`object-cover group-hover:scale-105 transition-all duration-500 ${!item.isAvailable ? 'grayscale opacity-50' : ''}`}
-                        />
-                        <div className="absolute top-2 left-2 px-2 py-1 bg-white/90 backdrop-blur-sm rounded-lg text-xs font-bold text-primary shadow-sm border border-primary/10">
-                          {item.category}
-                        </div>
-                        {!item.isAvailable && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
-                            <span className="bg-destructive text-destructive-foreground px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest">Out of Stock</span>
-                          </div>
-                        )}
+                      <div className="relative w-full sm:w-48 h-48 sm:h-auto overflow-hidden">
+                        <Image src={item.imageUrl} alt={item.name} fill className={`object-cover ${!item.isAvailable ? 'grayscale opacity-50' : ''}`} />
+                        {!item.isAvailable && <div className="absolute inset-0 flex items-center justify-center bg-black/20 font-bold text-white text-xs uppercase tracking-widest">Out of Stock</div>}
                       </div>
                       <div className="flex-1 p-6 flex flex-col justify-between">
                         <div>
                           <div className="flex justify-between items-start mb-2">
-                            <h3 className={`text-xl font-bold ${!item.isAvailable ? 'text-muted-foreground' : ''}`}>{item.name}</h3>
+                            <h3 className="text-xl font-bold">{item.name}</h3>
                             <p className="text-lg font-extrabold text-primary">₹{item.price}</p>
                           </div>
-                          <p className="text-sm text-muted-foreground line-clamp-2 mb-4 leading-relaxed">{item.description}</p>
+                          <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
                         </div>
-                        <div className="flex justify-between items-center pt-4 border-t">
+                        <div className="flex justify-between items-center pt-4 border-t mt-4">
                           <div className="flex items-center gap-3">
-                            <Switch 
-                              checked={item.isAvailable} 
-                              onCheckedChange={() => toggleAvailability(item.id, item.isAvailable)}
-                            />
-                            <Label className="text-sm font-medium">Available</Label>
+                            <Switch checked={item.isAvailable} onCheckedChange={() => {
+                              const ref = doc(firestore, 'vendors', vendor.id, 'menuItems', item.id);
+                              updateDoc(ref, { isAvailable: !item.isAvailable, updatedAt: new Date().toISOString() });
+                            }} />
+                            <Label className="text-sm">Available</Label>
                           </div>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="rounded-lg text-destructive hover:bg-destructive/5 hover:text-destructive border-destructive/20"
-                            onClick={() => handleDelete(item.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
+                          <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/5" onClick={() => deleteDoc(doc(firestore, 'vendors', vendor.id, 'menuItems', item.id))}>
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
@@ -496,8 +384,8 @@ export default function MenuManagement() {
             ) : (
               <div className="text-center py-20 border-2 border-dashed rounded-[2rem] bg-muted/30">
                 <Utensils className="mx-auto h-12 w-12 text-muted-foreground mb-4 opacity-20" />
-                <h3 className="text-xl font-bold text-muted-foreground">Your menu is empty</h3>
-                <p className="text-muted-foreground">Start by adding your first dish using the form.</p>
+                <h3 className="text-xl font-bold text-muted-foreground">Empty Menu</h3>
+                <p className="text-muted-foreground">Add your specialties to start accepting orders.</p>
               </div>
             )}
           </div>
