@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -145,6 +146,8 @@ export default function VendorSignUp() {
 
       const vendorId = `vendor-${user.uid}`;
       const vendorRef = doc(firestore, 'vendors', vendorId);
+      const publicUrl = `${window.location.origin}/v/${vendorId}`;
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(publicUrl)}`;
 
       await setDoc(vendorRef, {
         id: vendorId,
@@ -153,6 +156,7 @@ export default function VendorSignUp() {
         gstNumber: values.gstNumber,
         fssaiNumber: values.fssaiNumber,
         contactPhone: values.phoneNumber,
+        qrCodeUrl: qrCodeUrl,
         isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

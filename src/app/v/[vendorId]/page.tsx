@@ -4,13 +4,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Utensils, IndianRupee, ArrowLeft, Store, Info, QrCode, Share2, MapPin, Clock, BadgeCheck } from 'lucide-react';
+import { Utensils, IndianRupee, ArrowLeft, Store, Info, QrCode, Share2, MapPin, Clock, BadgeCheck, X, Maximize2 } from 'lucide-react';
 import { collection, doc } from 'firebase/firestore';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import Navbar from '@/components/Navbar';
 import { toast } from '@/hooks/use-toast';
 
@@ -42,7 +43,7 @@ export default function PublicMenuPage() {
   const { data: menuItems, isLoading: isMenuLoading } = useCollection(menuItemsQuery);
 
   const publicUrl = vendor && origin ? `${origin}/v/${vendor.id}` : '';
-  const qrCodeUrl = publicUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(publicUrl)}` : '';
+  const qrCodeUrl = publicUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(publicUrl)}` : '';
 
   const handleShare = () => {
     if (navigator.share) {
@@ -141,12 +142,37 @@ export default function PublicMenuPage() {
               </div>
             </div>
             <div className="flex gap-3">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="bg-white/80 backdrop-blur-sm border-primary/10 hover:bg-white gap-2 rounded-2xl h-14 px-8 font-bold shadow-xl transition-all hover:scale-105 active:scale-95">
+                    <QrCode className="h-5 w-5 text-primary" />
+                    Show QR
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="rounded-[3rem] max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle className="text-center font-headline text-2xl font-bold">Stall QR Code</DialogTitle>
+                    <DialogDescription className="text-center">
+                      Others can scan this to see the menu for {vendor.name}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="flex flex-col items-center gap-6 py-6">
+                    <div className="p-4 bg-white rounded-[2rem] border-4 border-primary/5 shadow-inner">
+                      {qrCodeUrl ? (
+                        <img src={qrCodeUrl} alt="Stall QR" className="w-64 h-64" />
+                      ) : (
+                        <Skeleton className="w-64 h-64 rounded-2xl" />
+                      )}
+                    </div>
+                    <Button variant="outline" className="w-full rounded-xl" asChild>
+                      <a href={qrCodeUrl} download={`${vendor.name}-QR.png`}>Download QR</a>
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
               <Button onClick={handleShare} variant="outline" className="bg-white/80 backdrop-blur-sm border-primary/10 hover:bg-white gap-2 rounded-2xl h-14 px-8 font-bold shadow-xl transition-all hover:scale-105 active:scale-95">
                 <Share2 className="h-5 w-5 text-primary" />
                 Share
-              </Button>
-              <Button className="bg-primary text-white hover:bg-primary/90 gap-2 rounded-2xl h-14 px-8 font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95">
-                Call Vendor
               </Button>
             </div>
           </div>
@@ -169,18 +195,33 @@ export default function PublicMenuPage() {
                 </div>
                 
                 <div className="pt-8 border-t">
-                  <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-6 flex items-center gap-2">
-                    <QrCode className="h-4 w-4 text-primary" /> Scan & Share
-                  </h3>
-                  <div className="bg-muted/30 p-5 rounded-[2rem] border border-primary/5 shadow-inner mb-4 flex justify-center group cursor-pointer hover:bg-white transition-colors duration-500">
-                    {qrCodeUrl ? (
-                      <img src={qrCodeUrl} alt="Stall QR" className="w-40 h-40 group-hover:scale-105 transition-transform" />
-                    ) : (
-                      <Skeleton className="w-40 h-40 rounded-2xl" />
-                    )}
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                      <QrCode className="h-4 w-4 text-primary" /> Scan to Order
+                    </h3>
                   </div>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <div className="bg-muted/30 p-5 rounded-[2rem] border border-primary/5 shadow-inner mb-4 flex justify-center group cursor-pointer hover:bg-white transition-colors duration-500 relative">
+                        {qrCodeUrl ? (
+                          <img src={qrCodeUrl} alt="Stall QR" className="w-40 h-40 group-hover:scale-105 transition-transform" />
+                        ) : (
+                          <Skeleton className="w-40 h-40 rounded-2xl" />
+                        )}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 flex items-center justify-center transition-colors rounded-[2rem]">
+                          <Maximize2 className="text-white opacity-0 group-hover:opacity-100 h-8 w-8 drop-shadow-lg" />
+                        </div>
+                      </div>
+                    </DialogTrigger>
+                    <DialogContent className="rounded-[3rem] max-w-sm">
+                      <div className="flex flex-col items-center gap-6 py-6">
+                        <img src={qrCodeUrl} alt="Stall QR Large" className="w-72 h-72" />
+                        <p className="font-bold font-headline text-lg text-center">Scan to open digital menu</p>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                   <p className="text-xs text-center text-muted-foreground px-4 leading-relaxed">
-                    Others can scan this to see our full menu and prices instantly on their phones.
+                    Point your camera here to see our full menu and prices instantly on your phone.
                   </p>
                 </div>
 
