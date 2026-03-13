@@ -54,6 +54,13 @@ export default function MenuManagement() {
     }
   }, []);
 
+  // Redirect to landing page if user is not logged in
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/');
+    }
+  }, [user, isUserLoading, router]);
+
   const vendorsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
     return query(collection(firestore, 'vendors'), where('ownerId', '==', user.uid));
@@ -148,7 +155,7 @@ export default function MenuManagement() {
     const itemData = {
       id: itemId,
       vendorId: vendor.id,
-      vendorOwnerId: user.uid, // Required for security rules
+      vendorOwnerId: user.uid,
       name: values.name,
       price: values.price,
       description: values.description,
@@ -211,8 +218,7 @@ export default function MenuManagement() {
   }
 
   if (!user) {
-    router.push('/login');
-    return null;
+    return null; // Handled by useEffect redirect
   }
 
   if (!vendor && !isVendorsLoading) {
@@ -230,9 +236,7 @@ export default function MenuManagement() {
       <Navbar />
       <main className="container mx-auto px-4 py-12">
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Form & QR Column */}
           <div className="w-full lg:w-1/3 space-y-8">
-            {/* QR Code Card */}
             {vendor && (
               <Card className="shadow-xl rounded-[2rem] border-primary/10 overflow-hidden bg-white">
                 <CardHeader className="pb-2">
@@ -270,7 +274,6 @@ export default function MenuManagement() {
               </Card>
             )}
 
-            {/* Add Menu Item Card */}
             <Card className="shadow-xl rounded-[2rem] border-primary/10">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -410,7 +413,6 @@ export default function MenuManagement() {
             </Card>
           </div>
 
-          {/* List Column */}
           <div className="w-full lg:w-2/3">
             <div className="flex items-center justify-between mb-8">
               <div>

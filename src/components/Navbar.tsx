@@ -1,7 +1,8 @@
+
 "use client";
 
 import Link from 'next/link';
-import { Utensils, Menu, X, LogOut, LayoutDashboard, Store } from 'lucide-react';
+import { Utensils, Menu, X, LogOut, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useUser, useAuth } from '@/firebase';
