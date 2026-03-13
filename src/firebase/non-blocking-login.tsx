@@ -4,26 +4,31 @@ import {
   signInAnonymously,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  // Assume getAuth and app are initialized elsewhere
 } from 'firebase/auth';
 
 /** Initiate anonymous sign-in (non-blocking). */
 export function initiateAnonymousSignIn(authInstance: Auth): void {
   // CRITICAL: Call signInAnonymously directly. Do NOT use 'await signInAnonymously(...)'.
-  signInAnonymously(authInstance);
-  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
+  // We catch the error to prevent unhandled promise rejections.
+  signInAnonymously(authInstance).catch((error) => {
+    // This error is usually handled by the onAuthStateChanged listener in the provider
+    // or surfaced through the UI if we were to emit it.
+    console.error("Auth Error (initiateAnonymousSignIn):", error.code, error.message);
+  });
 }
 
 /** Initiate email/password sign-up (non-blocking). */
 export function initiateEmailSignUp(authInstance: Auth, email: string, password: string): void {
-  // CRITICAL: Call createUserWithEmailAndPassword directly. Do NOT use 'await createUserWithEmailAndPassword(...)'.
-  createUserWithEmailAndPassword(authInstance, email, password);
-  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
+  // CRITICAL: Call createUserWithEmailAndPassword directly.
+  createUserWithEmailAndPassword(authInstance, email, password).catch((error) => {
+    console.error("Auth Error (initiateEmailSignUp):", error.code, error.message);
+  });
 }
 
 /** Initiate email/password sign-in (non-blocking). */
 export function initiateEmailSignIn(authInstance: Auth, email: string, password: string): void {
-  // CRITICAL: Call signInWithEmailAndPassword directly. Do NOT use 'await signInWithEmailAndPassword(...)'.
-  signInWithEmailAndPassword(authInstance, email, password);
-  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
+  // CRITICAL: Call signInWithEmailAndPassword directly.
+  signInWithEmailAndPassword(authInstance, email, password).catch((error) => {
+    console.error("Auth Error (initiateEmailSignIn):", error.code, error.message);
+  });
 }

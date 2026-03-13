@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -64,28 +63,35 @@ export default function VendorSignUp() {
     setIsSubmitting(true);
 
     try {
-      let currentUserId = user?.uid;
+      // Check if user is already logged in
+      let currentUser = auth.currentUser;
 
-      if (!currentUserId) {
+      if (!currentUser) {
         initiateAnonymousSignIn(auth);
         toast({
           title: "Signing you in...",
-          description: "Please wait while we set up your account.",
+          description: "Please wait while we set up your secure session.",
         });
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        currentUserId = auth.currentUser?.uid;
+        
+        // Wait up to 3 seconds for the user to be signed in
+        let attempts = 0;
+        while (!auth.currentUser && attempts < 15) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+          attempts++;
+        }
+        currentUser = auth.currentUser;
       }
 
-      if (!currentUserId) {
-         throw new Error("Could not initialize session. Please refresh and try again.");
+      if (!currentUser) {
+         throw new Error("Anonymous Auth failed. Please ensure 'Anonymous' sign-in is enabled in your Firebase Console (Authentication > Sign-in method).");
       }
 
-      const vendorId = `vendor-${currentUserId}`;
+      const vendorId = `vendor-${currentUser.uid}`;
       const vendorRef = doc(firestore, 'vendors', vendorId);
 
       await setDoc(vendorRef, {
         id: vendorId,
-        ownerId: currentUserId,
+        ownerId: currentUser.uid,
         name: values.businessName,
         gstNumber: values.gstNumber,
         fssaiNumber: values.fssaiNumber,
@@ -97,16 +103,15 @@ export default function VendorSignUp() {
 
       toast({
         title: "Registration Successful!",
-        description: "Now let's set up your menu.",
+        description: "Your stall is ready. Now let's build your menu!",
       });
       
       router.push(`/vendor/menu`); 
     } catch (error: any) {
-      console.error("Error registering vendor:", error);
       toast({
         variant: "destructive",
-        title: "Registration Failed",
-        description: error.message || "Something went wrong. Please try again.",
+        title: "Registration Error",
+        description: error.message || "Failed to create vendor profile.",
       });
     } finally {
       setIsSubmitting(false);
@@ -203,7 +208,7 @@ export default function VendorSignUp() {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Registering...
+                      Setting Up...
                     </>
                   ) : (
                     "Join as Vendor"
