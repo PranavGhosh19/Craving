@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X, ExternalLink, Eye } from 'lucide-react';
+import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X, ExternalLink, Eye, Store } from 'lucide-react';
 import { collection, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
