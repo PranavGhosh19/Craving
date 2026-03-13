@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Utensils, IndianRupee, Image as ImageIcon, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X } from 'lucide-react';
+import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X } from 'lucide-react';
 import { collection, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -17,11 +17,10 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import { generateDishDescription } from '@/ai/flows/generate-dish-description';
@@ -31,7 +30,7 @@ const menuItemSchema = z.object({
   price: z.coerce.number().min(1, "Price must be greater than 0."),
   description: z.string().min(10, "Description should be at least 10 characters."),
   category: z.string().min(2, "Category is required."),
-  imageUrl: z.string().optional().or(z.literal('')),
+  imageUrl: z.string().min(1, "Please upload an image."),
 });
 
 type MenuItemValues = z.infer<typeof menuItemSchema>;
@@ -74,7 +73,7 @@ export default function MenuManagement() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 1024 * 1024) { // 1MB limit for base64 storage in Firestore
+      if (file.size > 1024 * 1024) { 
         toast({
           variant: "destructive",
           title: "File too large",
@@ -87,6 +86,7 @@ export default function MenuManagement() {
         const base64String = reader.result as string;
         setImagePreview(base64String);
         form.setValue('imageUrl', base64String);
+        form.clearErrors('imageUrl');
       };
       reader.readAsDataURL(file);
     }
@@ -144,7 +144,7 @@ export default function MenuManagement() {
         price: values.price,
         description: values.description,
         category: values.category,
-        imageUrl: values.imageUrl || `https://picsum.photos/seed/${itemId}/400/300`,
+        imageUrl: values.imageUrl,
         isAvailable: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -201,7 +201,7 @@ export default function MenuManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       <Navbar />
       <main className="container mx-auto px-4 py-12">
         <div className="flex flex-col lg:flex-row gap-12">
@@ -328,15 +328,8 @@ export default function MenuManagement() {
                       <FormField
                         control={form.control}
                         name="imageUrl"
-                        render={({ field }) => (
+                        render={() => (
                           <FormItem>
-                            <FormLabel className="text-xs">Or use an Image URL</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                                <Input placeholder="https://..." {...field} className="pl-8 h-8 text-xs rounded-lg" />
-                              </div>
-                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -372,7 +365,7 @@ export default function MenuManagement() {
                     <div className="flex flex-col sm:flex-row">
                       <div className="relative w-full sm:w-48 h-48 sm:h-auto overflow-hidden bg-muted">
                         <Image 
-                          src={item.imageUrl || `https://picsum.photos/seed/${item.id}/400/300`}
+                          src={item.imageUrl}
                           alt={item.name}
                           fill
                           className="object-cover group-hover:scale-105 transition-transform duration-500"
