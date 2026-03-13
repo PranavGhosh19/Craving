@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Store, Phone, FileText, BadgeCheck, Loader2 } from 'lucide-react';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
 import { useAuth } from '@/firebase/provider';
@@ -45,7 +45,7 @@ type VendorFormValues = z.infer<typeof vendorFormSchema>;
 export default function VendorSignUp() {
   const router = useRouter();
   const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
+  const { user } = useUser();
   const auth = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -67,30 +67,25 @@ export default function VendorSignUp() {
       let currentUserId = user?.uid;
 
       if (!currentUserId) {
-        // If not signed in, sign in anonymously first
         initiateAnonymousSignIn(auth);
-        // We wait briefly for the auth state to update or just use the UID if we had it.
-        // For a more robust flow, we'd wait for the user to be available, 
-        // but since we're in a non-blocking context, we'll try to get it.
         toast({
           title: "Signing you in...",
           description: "Please wait while we set up your account.",
         });
-        // Short delay to let auth settle
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        // Re-check user (this is a bit of a hack in a stateless component but works for MVP)
-        // In a real app, you'd handle this more gracefully.
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        currentUserId = auth.currentUser?.uid;
       }
 
-      // If still no user, we might need a different approach, but let's proceed 
-      // with a generated ID if needed, though security rules prefer uid.
-      const finalUid = user?.uid || `v-${Date.now()}`;
-      const vendorId = `vendor-${finalUid}`;
+      if (!currentUserId) {
+         throw new Error("Could not initialize session. Please refresh and try again.");
+      }
+
+      const vendorId = `vendor-${currentUserId}`;
       const vendorRef = doc(firestore, 'vendors', vendorId);
 
       await setDoc(vendorRef, {
         id: vendorId,
-        ownerId: finalUid,
+        ownerId: currentUserId,
         name: values.businessName,
         gstNumber: values.gstNumber,
         fssaiNumber: values.fssaiNumber,
@@ -102,10 +97,10 @@ export default function VendorSignUp() {
 
       toast({
         title: "Registration Successful!",
-        description: "Your street food stall has been registered.",
+        description: "Now let's set up your menu.",
       });
       
-      router.push('/'); // Redirect to home or dashboard
+      router.push(`/vendor/menu`); 
     } catch (error: any) {
       console.error("Error registering vendor:", error);
       toast({
