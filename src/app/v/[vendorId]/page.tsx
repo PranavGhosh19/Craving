@@ -21,7 +21,9 @@ export default function PublicMenuPage() {
   const [origin, setOrigin] = useState('');
 
   useEffect(() => {
-    setOrigin(window.location.origin);
+    if (typeof window !== 'undefined') {
+      setOrigin(window.location.origin);
+    }
   }, []);
 
   const vendorRef = useMemoFirebase(() => {
@@ -38,8 +40,8 @@ export default function PublicMenuPage() {
 
   const { data: menuItems, isLoading: isMenuLoading } = useCollection(menuItemsQuery);
 
-  const publicUrl = vendor ? `${origin}/v/${vendor.id}` : '';
-  const qrCodeUrl = publicUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(publicUrl)}` : '';
+  const publicUrl = vendor && origin ? `${origin}/v/${vendor.id}` : '';
+  const qrCodeUrl = publicUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(publicUrl)}` : '';
 
   const handleShare = () => {
     if (navigator.share) {
@@ -145,7 +147,7 @@ export default function PublicMenuPage() {
                     )}
                   </div>
                   <p className="text-[10px] text-center text-muted-foreground px-2">
-                    Scan this QR at the stall to open the digital menu anytime.
+                    Scanning this opens our digital menu instantly.
                   </p>
                 </div>
 

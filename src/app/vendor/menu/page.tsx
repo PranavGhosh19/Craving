@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X, ExternalLink, Eye, Store, QrCode, Download } from 'lucide-react';
+import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X, Eye, Store, QrCode, Download, ExternalLink } from 'lucide-react';
 import { collection, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -47,7 +47,9 @@ export default function MenuManagement() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setOrigin(window.location.origin);
+    if (typeof window !== 'undefined') {
+      setOrigin(window.location.origin);
+    }
   }, []);
 
   const vendorsQuery = useMemoFirebase(() => {
@@ -184,8 +186,8 @@ export default function MenuManagement() {
     }
   }
 
-  const publicUrl = vendor ? `${origin}/v/${vendor.id}` : '';
-  const qrCodeUrl = publicUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(publicUrl)}` : '';
+  const publicUrl = vendor && origin ? `${origin}/v/${vendor.id}` : '';
+  const qrCodeUrl = publicUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(publicUrl)}` : '';
 
   if (isUserLoading || isVendorsLoading) {
     return (
@@ -225,7 +227,7 @@ export default function MenuManagement() {
                     <QrCode className="h-6 w-6 text-primary" />
                     Stall QR Code
                   </CardTitle>
-                  <CardDescription>Customers scan this to view your menu.</CardDescription>
+                  <CardDescription>Scanning this opens your digital menu instantly.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center gap-6 p-6">
                   <div className="relative p-4 bg-white rounded-3xl border-4 border-primary/5 shadow-inner">
@@ -239,15 +241,15 @@ export default function MenuManagement() {
                   </div>
                   <div className="w-full space-y-3">
                     <Button variant="outline" className="w-full h-12 rounded-xl font-bold border-primary text-primary hover:bg-primary/5 gap-2" asChild>
-                      <a href={qrCodeUrl} download={`qr-${vendor.name}.png`} target="_blank" rel="noopener noreferrer">
+                      <a href={qrCodeUrl} target="_blank" rel="noopener noreferrer">
                         <Download className="h-4 w-4" />
-                        Download QR Code
+                        Get QR Code
                       </a>
                     </Button>
                     <Link href={`/v/${vendor.id}`} target="_blank">
                       <Button variant="ghost" className="w-full h-12 rounded-xl font-bold text-muted-foreground hover:text-primary gap-2">
                         <Eye className="h-4 w-4" />
-                        Preview Public Menu
+                        Preview Front-End
                       </Button>
                     </Link>
                   </div>
