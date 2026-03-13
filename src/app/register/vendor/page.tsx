@@ -1,15 +1,15 @@
+
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Store, Phone, FileText, BadgeCheck, Loader2 } from 'lucide-react';
+import { Store, Phone, FileText, BadgeCheck, Loader2, Key, CheckCircle } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
-import { useFirestore, useUser } from '@/firebase';
-import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
-import { useAuth } from '@/firebase/provider';
+import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import { useFirestore, useUser, useAuth } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -34,8 +34,8 @@ const vendorFormSchema = z.object({
   fssaiNumber: z.string().min(14, {
     message: "FSSAI Number must be 14 characters.",
   }).max(14),
-  phoneNumber: z.string().min(10, {
-    message: "Phone number must be at least 10 digits.",
+  phoneNumber: z.string().regex(/^\+[1-9]\d{1,14}$/, {
+    message: "Phone number must be in E.164 format (e.g., +919876543210).",
   }),
 });
 
@@ -44,9 +44,23 @@ type VendorFormValues = z.infer<typeof vendorFormSchema>;
 export default function VendorSignUp() {
   const router = useRouter();
   const firestore = useFirestore();
-  const { user } = useUser();
   const auth = useAuth();
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  useEffect(() => {
+    if (auth && !window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'invisible',
+        'callback': () => {
+          // reCAPTCHA solved, allow signInWithPhoneNumber.
+        }
+      });
+    }
+  }, [auth]);
 
   const form = useForm<VendorFormValues>({
     resolver: zodResolver(vendorFormSchema),
@@ -54,44 +68,58 @@ export default function VendorSignUp() {
       businessName: "",
       gstNumber: "",
       fssaiNumber: "",
-      phoneNumber: "",
+      phoneNumber: "+91",
     },
   });
 
-  async function onSubmit(values: VendorFormValues) {
-    if (!firestore) return;
+  async function onSendOTP(values: VendorFormValues) {
+    if (!auth || !window.recaptchaVerifier) return;
     setIsSubmitting(true);
 
     try {
-      // Check if user is already logged in
-      let currentUser = auth.currentUser;
-
-      if (!currentUser) {
-        initiateAnonymousSignIn(auth);
-        toast({
-          title: "Signing you in...",
-          description: "Please wait while we set up your secure session.",
+      const confirmation = await signInWithPhoneNumber(
+        auth, 
+        values.phoneNumber, 
+        window.recaptchaVerifier
+      );
+      setConfirmationResult(confirmation);
+      toast({
+        title: "OTP Sent!",
+        description: `A verification code has been sent to ${values.phoneNumber}`,
+      });
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Failed to send OTP",
+        description: error.message || "Please ensure the phone number is correct and try again.",
+      });
+      // Reset reCAPTCHA if it fails
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.render().then(widgetId => {
+          window.grecaptcha.reset(widgetId);
         });
-        
-        // Wait up to 3 seconds for the user to be signed in
-        let attempts = 0;
-        while (!auth.currentUser && attempts < 15) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-          attempts++;
-        }
-        currentUser = auth.currentUser;
       }
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
-      if (!currentUser) {
-         throw new Error("Anonymous Auth failed. Please ensure 'Anonymous' sign-in is enabled in your Firebase Console (Authentication > Sign-in method).");
-      }
+  async function onVerifyOTP() {
+    if (!confirmationResult || !firestore) return;
+    setIsVerifying(true);
 
-      const vendorId = `vendor-${currentUser.uid}`;
+    try {
+      const userCredential = await confirmationResult.confirm(verificationCode);
+      const user = userCredential.user;
+      const values = form.getValues();
+
+      const vendorId = `vendor-${user.uid}`;
       const vendorRef = doc(firestore, 'vendors', vendorId);
 
       await setDoc(vendorRef, {
         id: vendorId,
-        ownerId: currentUser.uid,
+        ownerId: user.uid,
         name: values.businessName,
         gstNumber: values.gstNumber,
         fssaiNumber: values.fssaiNumber,
@@ -110,11 +138,11 @@ export default function VendorSignUp() {
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Registration Error",
-        description: error.message || "Failed to create vendor profile.",
+        title: "Verification Error",
+        description: error.message || "Invalid OTP. Please try again.",
       });
     } finally {
-      setIsSubmitting(false);
+      setIsVerifying(false);
     }
   }
 
@@ -130,92 +158,141 @@ export default function VendorSignUp() {
             </div>
             <CardTitle className="text-3xl font-extrabold font-headline">Vendor Registration</CardTitle>
             <CardDescription className="text-base">
-              Join Craving and start accepting digital orders today.
+              {confirmationResult 
+                ? "Enter the code sent to your phone." 
+                : "Join Craving and start accepting digital orders today."}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="businessName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center gap-2">
-                        <Store className="h-4 w-4 text-primary" />
-                        Business Name
-                      </FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Bombay Street Bites" {...field} className="rounded-xl h-12" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="gstNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-primary" />
-                        GST Number
-                      </FormLabel>
-                      <FormControl>
-                        <Input placeholder="15-character GSTIN" {...field} className="rounded-xl h-12 uppercase" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="fssaiNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center gap-2">
-                        <BadgeCheck className="h-4 w-4 text-primary" />
-                        FSSAI License Number
-                      </FormLabel>
-                      <FormControl>
-                        <Input placeholder="14-digit FSSAI number" {...field} className="rounded-xl h-12" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="phoneNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-primary" />
-                        Phone Number
-                      </FormLabel>
-                      <FormControl>
-                        <Input placeholder="10-digit mobile number" {...field} className="rounded-xl h-12" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            {!confirmationResult ? (
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSendOTP)} className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="businessName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                          <Store className="h-4 w-4 text-primary" />
+                          Business Name
+                        </FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Bombay Street Bites" {...field} className="rounded-xl h-12" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="gstNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-primary" />
+                          GST Number
+                        </FormLabel>
+                        <FormControl>
+                          <Input placeholder="15-character GSTIN" {...field} className="rounded-xl h-12 uppercase" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="fssaiNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                          <BadgeCheck className="h-4 w-4 text-primary" />
+                          FSSAI License Number
+                        </FormLabel>
+                        <FormControl>
+                          <Input placeholder="14-digit FSSAI number" {...field} className="rounded-xl h-12" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="phoneNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-primary" />
+                          Phone Number (E.164)
+                        </FormLabel>
+                        <FormControl>
+                          <Input placeholder="+919876543210" {...field} className="rounded-xl h-12" />
+                        </FormControl>
+                        <FormDescription className="text-[10px]">
+                          Include country code (e.g., +91 for India).
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div id="recaptcha-container"></div>
+                  <Button 
+                    type="submit" 
+                    className="w-full h-14 rounded-2xl font-bold text-lg shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all" 
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Sending OTP...
+                      </>
+                    ) : (
+                      "Send Verification Code"
+                    )}
+                  </Button>
+                </form>
+              </Form>
+            ) : (
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <FormLabel className="flex items-center gap-2">
+                    <Key className="h-4 w-4 text-primary" />
+                    Enter 6-digit OTP
+                  </FormLabel>
+                  <Input 
+                    type="text" 
+                    placeholder="123456" 
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    className="rounded-xl h-14 text-center text-2xl tracking-[0.5em] font-bold"
+                    maxLength={6}
+                  />
+                </div>
                 <Button 
-                  type="submit" 
-                  className="w-full h-14 rounded-2xl font-bold text-lg shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all" 
-                  disabled={isSubmitting}
+                  onClick={onVerifyOTP} 
+                  className="w-full h-14 rounded-2xl font-bold text-lg shadow-lg shadow-primary/20 bg-green-600 hover:bg-green-700 hover:scale-[1.02] transition-all" 
+                  disabled={isVerifying || verificationCode.length !== 6}
                 >
-                  {isSubmitting ? (
+                  {isVerifying ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Setting Up...
+                      Verifying...
                     </>
                   ) : (
-                    "Join as Vendor"
+                    <>
+                      <CheckCircle className="mr-2 h-5 w-5" />
+                      Verify & Complete
+                    </>
                   )}
                 </Button>
-              </form>
-            </Form>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setConfirmationResult(null)} 
+                  className="w-full text-muted-foreground"
+                >
+                  Edit Details
+                </Button>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="pb-8 pt-2 flex justify-center text-sm text-muted-foreground">
             By registering, you agree to our Terms of Service.
@@ -224,4 +301,11 @@ export default function VendorSignUp() {
       </main>
     </div>
   );
+}
+
+declare global {
+  interface Window {
+    recaptchaVerifier: RecaptchaVerifier;
+    grecaptcha: any;
+  }
 }

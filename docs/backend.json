@@ -426,7 +426,8 @@
   "auth": {
     "providers": [
       "password",
-      "anonymous"
+      "anonymous",
+      "phone"
     ]
   },
   "firestore": {
@@ -559,7 +560,6 @@
           ]
         }
       }
-    ],
-    "reasoning": "The Firestore structure for Craving prioritizes security, scalability, and debuggability by strictly adhering to the core design principles. Authorization Independence is achieved through strategic denormalization: critical authorization fields such as `ownerId` (the Firebase UID of the user who owns the document), `customerId`, and `vendorId` are explicitly stored within each document where they are needed for access checks. For instance, `MenuItem` documents, while residing in a subcollection of a `Vendor`, will also contain the `vendorId` and the `vendorOwnerId` (the `ownerId` of the parent `Vendor`) directly. This eliminates the need for expensive and complex `get()` calls in security rules to check parent documents, thus enabling atomic operations and simplifying rule logic.\n\nStructural Segregation is applied to ensure homogeneous security postures within collections. For example, `/vendors/{vendorId}/menuItems` holds only menu items, all of which are publicly readable but editable only by the vendor owner. This avoids mixing data with different access requirements, making security rules much clearer.\n\nAccess Modeling uses consistent patterns:\n-   **Path-Based Ownership:** Private user data (e.g., `/customers/{customerId}`) is secured by having the document ID match the `request.auth.uid`.\n-   **Hierarchical Paths:** Data owned by a parent entity (e.g., `MenuItem` by `Vendor`, `LoyaltyProgram` by `Vendor`, `CustomerLoyalty` by `Customer`) is placed in subcollections, with necessary owner IDs denormalized.\n-   **Collaborative Data:** `Order` documents, which involve both a `Customer` and a `Vendor`, are stored in a top-level collection (`/orders/{orderId}`) and include both `customerId` and `vendorId` fields directly. This allows rules to grant access to either party.\n\nQueryable Authorization Predicates (QAPs) are supported by this structure, enabling secure `list` operations without relying on rules as filters. For publicly readable data (like active `Vendor` profiles, `MenuItem`s, and `LoyaltyProgram`s), rules can simply allow read access. For private or collaborative data, `list` queries must include filters matching the `request.auth.uid` against relevant denormalized fields (e.g., `customerId` for customer orders, `vendorId` for vendor orders). The security rules will then ensure that a user can only query for data where their `uid` matches the `customerId` or `vendorId` in the query's `where` clause. This combination of structural segregation and denormalized authorization fields ensures that all access patterns are explicit, efficient, and easily debuggable."
+    ]
   }
 }
