@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X } from 'lucide-react';
+import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X, ExternalLink, Eye } from 'lucide-react';
 import { collection, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -194,6 +195,7 @@ export default function MenuManagement() {
   if (!vendor && !isVendorsLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <Store className="h-16 w-16 text-muted-foreground mb-4 opacity-20" />
         <h1 className="text-2xl font-bold mb-4">Vendor Profile Not Found</h1>
         <Button onClick={() => router.push('/register/vendor')}>Register as Vendor</Button>
       </div>
@@ -205,16 +207,29 @@ export default function MenuManagement() {
       <Navbar />
       <main className="container mx-auto px-4 py-12">
         <div className="flex flex-col lg:flex-row gap-12">
+          {/* Form Column */}
           <div className="w-full lg:w-1/3">
             <Card className="shadow-xl rounded-[2rem] border-primary/10 sticky top-24">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="h-6 w-6 text-primary" />
-                  Add Menu Item
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Plus className="h-6 w-6 text-primary" />
+                    Add Menu Item
+                  </CardTitle>
+                </div>
                 <CardDescription>Create a new dish for your stall.</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-6">
+                {vendor && (
+                  <Link href={`/v/${vendor.id}`} target="_blank">
+                    <Button variant="outline" className="w-full h-12 rounded-xl font-bold border-primary text-primary hover:bg-primary/5 gap-2">
+                      <Eye className="h-4 w-4" />
+                      View Naked Front-End
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </Link>
+                )}
+
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <FormField
@@ -335,7 +350,7 @@ export default function MenuManagement() {
                         )}
                       />
                     </div>
-                    <Button type="submit" className="w-full h-12 rounded-xl font-bold" disabled={isAdding}>
+                    <Button type="submit" className="w-full h-12 rounded-xl font-bold shadow-lg shadow-primary/20" disabled={isAdding}>
                       {isAdding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                       Add to Menu
                     </Button>
@@ -345,6 +360,7 @@ export default function MenuManagement() {
             </Card>
           </div>
 
+          {/* List Column */}
           <div className="w-full lg:w-2/3">
             <div className="flex items-center justify-between mb-8">
               <div>
@@ -380,7 +396,7 @@ export default function MenuManagement() {
                             <h3 className="text-xl font-bold">{item.name}</h3>
                             <p className="text-lg font-extrabold text-primary">₹{item.price}</p>
                           </div>
-                          <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{item.description}</p>
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-4 leading-relaxed">{item.description}</p>
                         </div>
                         <div className="flex justify-end gap-2">
                           <Button 
