@@ -1,0 +1,21 @@
+{
+  "name": "Craving - Street Food Digitized",
+  "short_name": "Craving",
+  "description": "Smart ordering and loyalty for street food vendors.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#f59e0b",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/craving-icon/192/192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://picsum.photos/seed/craving-icon/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

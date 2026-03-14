@@ -1,20 +1,21 @@
-
 "use client";
 
 import Link from 'next/link';
-import { Utensils, Menu, X, LogOut, LayoutDashboard, UserCircle } from 'lucide-react';
+import { Utensils, Menu, X, LogOut, LayoutDashboard, UserCircle, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useUser, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
+import { useInstallPrompt } from '@/hooks/use-install-prompt';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
+  const { isInstallable, handleInstallClick } = useInstallPrompt();
 
   const handleSignOut = async () => {
     try {
@@ -45,6 +46,17 @@ export default function Navbar() {
 
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-6">
+          {isInstallable && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleInstallClick}
+              className="border-primary text-primary hover:bg-primary/5 rounded-full px-4 font-bold"
+            >
+              <Smartphone className="h-4 w-4 mr-2" />
+              Install App
+            </Button>
+          )}
           <Link href="/browse" className="text-sm font-medium hover:text-primary transition-colors">Browse Food</Link>
           
           {!isUserLoading && user ? (
@@ -87,9 +99,21 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Toggle */}
-        <button className="md:hidden" onClick={() => setIsOpen(!isOpen)}>
-          {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+        <div className="flex items-center gap-2 md:hidden">
+          {isInstallable && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleInstallClick}
+              className="text-primary"
+            >
+              <Smartphone className="h-5 w-5" />
+            </Button>
+          )}
+          <button onClick={() => setIsOpen(!isOpen)}>
+            {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}
