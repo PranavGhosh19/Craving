@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Utensils, Menu, X, LogOut, LayoutDashboard } from 'lucide-react';
+import { Utensils, Menu, X, LogOut, LayoutDashboard, UserCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useUser, useAuth } from '@/firebase';
@@ -44,14 +44,18 @@ export default function Navbar() {
         </div>
 
         {/* Desktop Menu */}
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden md:flex items-center gap-6">
           <Link href="/browse" className="text-sm font-medium hover:text-primary transition-colors">Browse Food</Link>
           
           {!isUserLoading && user ? (
             <>
               <Link href="/vendor/menu" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1.5">
                 <LayoutDashboard className="h-4 w-4" />
-                Manage Menu
+                Menu
+              </Link>
+              <Link href="/vendor/profile" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1.5">
+                <UserCircle className="h-4 w-4" />
+                Stall Profile
               </Link>
               <div className="flex items-center gap-3 ml-4">
                 <Button 
@@ -99,6 +103,10 @@ export default function Navbar() {
                 <Link href="/vendor/menu" className="text-lg font-medium py-2 flex items-center gap-2" onClick={() => setIsOpen(false)}>
                   <LayoutDashboard className="h-5 w-5 text-primary" />
                   Manage Menu
+                </Link>
+                <Link href="/vendor/profile" className="text-lg font-medium py-2 flex items-center gap-2" onClick={() => setIsOpen(false)}>
+                  <UserCircle className="h-5 w-5 text-primary" />
+                  Stall Profile
                 </Link>
                 <hr className="my-2" />
                 <Button 
