@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Utensils, ArrowLeft, BadgeCheck, QrCode, Share2, MapPin, Star, Sparkles, Smartphone, Download } from 'lucide-react';
+import { Utensils, ArrowLeft, BadgeCheck, QrCode, Share2, MapPin, Star, Sparkles, Smartphone, Gift, Award, Zap } from 'lucide-react';
 import { collection, doc } from 'firebase/firestore';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import Navbar from '@/components/Navbar';
 import { toast } from '@/hooks/use-toast';
-import Link from 'next/link';
 
 export default function PublicMenuPage() {
   const params = useParams();
@@ -43,7 +42,14 @@ export default function PublicMenuPage() {
 
   const { data: menuItems, isLoading: isMenuLoading } = useCollection(menuItemsQuery);
 
-  // The critical QR URL that points back to this exact page
+  const strategiesQuery = useMemoFirebase(() => {
+    if (!firestore || !vendorId) return null;
+    return collection(firestore, 'vendors', vendorId, 'loyaltyPrograms');
+  }, [firestore, vendorId]);
+
+  const { data: strategies, isLoading: isStrategiesLoading } = useCollection(strategiesQuery);
+  const activeStrategies = strategies?.filter(s => s.isActive) || [];
+
   const publicUrl = vendor && origin ? `${origin}/v/${vendor.id}` : '';
   const qrCodeUrl = publicUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(publicUrl)}` : '';
 
@@ -57,6 +63,15 @@ export default function PublicMenuPage() {
     } else {
       navigator.clipboard.writeText(publicUrl);
       toast({ title: "Link copied!" });
+    }
+  };
+
+  const getStrategyIcon = (type: string) => {
+    switch (type) {
+      case 'Referral': return <Gift className="h-5 w-5" />;
+      case 'BuyNGetMFree': return <Award className="h-5 w-5" />;
+      case 'Upsell': return <Zap className="h-5 w-5" />;
+      default: return <Sparkles className="h-5 w-5" />;
     }
   };
 
@@ -166,7 +181,32 @@ export default function PublicMenuPage() {
         </div>
       </div>
 
-      <main className="container mx-auto px-4 py-20">
+      <main className="container mx-auto px-4 py-12">
+        {/* Active Strategies Banner */}
+        {activeStrategies.length > 0 && (
+          <div className="mb-12 space-y-4">
+            {activeStrategies.map((strat) => (
+              <div 
+                key={strat.id} 
+                className="bg-primary/10 border-2 border-primary/20 rounded-[2rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm animate-in fade-in slide-in-from-top-4"
+              >
+                <div className="flex items-center gap-4 text-center md:text-left">
+                  <div className="h-14 w-14 rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg">
+                    {getStrategyIcon(strat.type)}
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-black uppercase italic tracking-tighter text-primary">{strat.name}</h4>
+                    <p className="text-muted-foreground font-medium">{strat.description}</p>
+                  </div>
+                </div>
+                <Button className="h-12 px-8 rounded-xl font-bold bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/20 shrink-0">
+                  Claim Reward
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="grid gap-20 lg:grid-cols-4">
           <div className="lg:col-span-1 space-y-12">
             <div className="space-y-8">
