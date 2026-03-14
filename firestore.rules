@@ -3,14 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * CORE PHILOSOPHY:
-     * This ruleset implements a robust, multi-role security model for the Craving platform.
-     * It segregates access based on the relationship between Vendors, Customers, and Orders.
-     */
-
-    // --- Helper Functions ---
-
     function isSignedIn() {
       return request.auth != null;
     }
@@ -19,67 +11,29 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
-    }
-
-    function isSharedParticipant(customerId, vendorId) {
-      return isSignedIn() && (request.auth.uid == customerId || request.auth.uid == vendorId);
-    }
-
-    function isImmutable(fieldName) {
-      return request.resource.data[fieldName] == resource.data[fieldName];
-    }
-
-    // --- Collection Rules ---
-
     match /vendors/{vendorId} {
       allow get, list: if true;
-      allow create: if isOwner(request.resource.data.ownerId) && request.resource.data.id == vendorId;
-      allow update: if isExistingOwner(resource.data.ownerId) && isImmutable('id') && isImmutable('ownerId');
-      allow delete: if isExistingOwner(resource.data.ownerId);
+      allow create: if isOwner(request.resource.data.ownerId);
+      allow update, delete: if isOwner(resource.data.ownerId);
 
       match /menuItems/{menuItemId} {
         allow get, list: if true;
-        allow create: if isOwner(request.resource.data.vendorOwnerId) && request.resource.data.id == menuItemId;
-        allow update: if isExistingOwner(resource.data.vendorOwnerId) && isImmutable('id') && isImmutable('vendorOwnerId');
-        allow delete: if isExistingOwner(resource.data.vendorOwnerId);
+        allow create, update, delete: if isOwner(get(/databases/$(database)/documents/vendors/$(vendorId)).data.ownerId);
       }
 
       match /loyaltyPrograms/{loyaltyProgramId} {
         allow get, list: if true;
-        allow create: if isOwner(request.resource.data.vendorOwnerId) && request.resource.data.id == loyaltyProgramId;
-        allow update: if isExistingOwner(resource.data.vendorOwnerId) && isImmutable('id') && isImmutable('vendorOwnerId');
-        allow delete: if isExistingOwner(resource.data.vendorOwnerId);
+        allow create, update, delete: if isOwner(get(/databases/$(database)/documents/vendors/$(vendorId)).data.ownerId);
       }
     }
 
     match /customers/{customerId} {
-      allow get, list: if isOwner(customerId);
-      allow create: if isOwner(customerId) && request.resource.data.id == customerId;
-      allow update: if isExistingOwner(customerId) && isImmutable('id');
-      allow delete: if isExistingOwner(customerId);
+      allow get, list, create, update, delete: if isOwner(customerId);
 
-      match /customerLoyalties/{customerLoyaltyId} {
+      match /wallets/{walletId} {
         allow get, list: if isOwner(customerId);
-        allow create: if isOwner(customerId) && request.resource.data.id == customerLoyaltyId;
-        allow update: if isOwner(customerId) && isImmutable('id');
-        allow delete: if isOwner(customerId);
-      }
-    }
-
-    match /orders/{orderId} {
-      allow get: if isSharedParticipant(resource.data.customerId, resource.data.vendorId);
-      allow list: if isSignedIn();
-      allow create: if isOwner(request.resource.data.customerId) && request.resource.data.id == orderId;
-      allow update: if isSharedParticipant(resource.data.customerId, resource.data.vendorId) && isImmutable('id') && isImmutable('customerId') && isImmutable('vendorId');
-      allow delete: if isSharedParticipant(resource.data.customerId, resource.data.vendorId);
-
-      match /orderItems/{orderItemId} {
-        allow get, list: if isSignedIn();
-        allow create: if isSignedIn() && request.resource.data.id == orderItemId;
-        allow update: if isSignedIn() && isImmutable('id') && isImmutable('orderId');
-        allow delete: if isSignedIn();
+        allow create: if isOwner(customerId);
+        allow update: if isOwner(customerId);
       }
     }
   }

@@ -4,14 +4,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Utensils, ArrowLeft, BadgeCheck, QrCode, Share2, MapPin, Star, Sparkles, Smartphone, Gift, Award, Zap } from 'lucide-react';
-import { collection, doc } from 'firebase/firestore';
-import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { Utensils, ArrowLeft, BadgeCheck, QrCode, Share2, MapPin, Star, Sparkles, Smartphone, Gift, Award, Zap, Wallet, Loader2, Plus, CreditCard } from 'lucide-react';
+import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
+import { useFirestore, useDoc, useCollection, useMemoFirebase, useAuth, useUser } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import Navbar from '@/components/Navbar';
 import { toast } from '@/hooks/use-toast';
 
@@ -19,14 +20,24 @@ export default function PublicMenuPage() {
   const params = useParams();
   const router = useRouter();
   const firestore = useFirestore();
+  const auth = useAuth();
+  const { user } = useUser();
   const vendorId = params.vendorId as string;
   const [origin, setOrigin] = useState('');
+  const [isToppingUp, setIsToppingUp] = useState<number | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setOrigin(window.location.origin);
     }
   }, []);
+
+  // Ensure customer is signed in anonymously to track wallet
+  useEffect(() => {
+    if (auth && !user) {
+      signInAnonymously(auth).catch(console.error);
+    }
+  }, [auth, user]);
 
   const vendorRef = useMemoFirebase(() => {
     if (!firestore || !vendorId) return null;
@@ -47,11 +58,46 @@ export default function PublicMenuPage() {
     return collection(firestore, 'vendors', vendorId, 'loyaltyPrograms');
   }, [firestore, vendorId]);
 
-  const { data: strategies, isLoading: isStrategiesLoading } = useCollection(strategiesQuery);
+  const { data: strategies } = useCollection(strategiesQuery);
   const activeStrategies = strategies?.filter(s => s.isActive) || [];
+
+  const walletRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid || !vendorId) return null;
+    return doc(firestore, 'customers', user.uid, 'wallets', vendorId);
+  }, [firestore, user?.uid, vendorId]);
+
+  const { data: wallet, isLoading: isWalletLoading } = useDoc(walletRef);
 
   const publicUrl = vendor && origin ? `${origin}/v/${vendor.id}` : '';
   const qrCodeUrl = publicUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(publicUrl)}` : '';
+
+  const handleTopUp = async (amount: number, bonus: number) => {
+    if (!firestore || !user?.uid || !vendorId) return;
+    setIsToppingUp(amount);
+
+    try {
+      const currentBalance = wallet?.balance || 0;
+      const newBalance = currentBalance + amount + bonus;
+
+      await setDoc(doc(firestore, 'customers', user.uid, 'wallets', vendorId), {
+        id: vendorId,
+        customerId: user.uid,
+        vendorId: vendorId,
+        balance: newBalance,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      toast({
+        title: "Wallet Topped Up!",
+        description: `Added ₹${amount} + ₹${bonus} bonus! Total: ₹${newBalance}`,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Top up failed" });
+    } finally {
+      setIsToppingUp(null);
+    }
+  };
 
   const handleShare = () => {
     if (navigator.share) {
@@ -70,7 +116,7 @@ export default function PublicMenuPage() {
     switch (type) {
       case 'Referral': return <Gift className="h-5 w-5" />;
       case 'BuyNGetMFree': return <Award className="h-5 w-5" />;
-      case 'Upsell': return <Zap className="h-5 w-5" />;
+      case 'FoodWallet': return <Wallet className="h-5 w-5" />;
       default: return <Sparkles className="h-5 w-5" />;
     }
   };
@@ -127,24 +173,20 @@ export default function PublicMenuPage() {
                   <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
                   Live Menu
                 </Badge>
-                <Badge variant="secondary" className="bg-white/90 text-primary font-bold shadow-xl border-none flex gap-2 items-center rounded-xl">
-                  <BadgeCheck className="h-4 w-4" />
-                  Verified Stall
-                </Badge>
+                {wallet && wallet.balance > 0 && (
+                  <Badge className="bg-emerald-600 text-white font-bold px-4 py-1.5 shadow-xl border-none flex gap-2 items-center rounded-xl">
+                    <Wallet className="h-4 w-4" />
+                    Wallet: ₹{wallet.balance}
+                  </Badge>
+                )}
               </div>
               <h1 className="text-5xl md:text-8xl font-black font-headline text-foreground drop-shadow-md tracking-tight leading-none uppercase italic">
                 {vendor.name}
               </h1>
-              <div className="flex flex-wrap items-center gap-6 text-foreground/80 font-bold text-lg">
-                <p className="flex items-center gap-2"><MapPin className="h-6 w-6 text-primary" /> {vendor.locationDescription || 'Local Hub'}</p>
-                <div className="flex items-center gap-1 text-primary">
-                  {[1, 2, 3, 4, 5].map(i => <Star key={i} className="h-5 w-5 fill-current" />)}
-                  <span className="ml-2 text-foreground font-medium text-base">4.9 Ratings</span>
-                </div>
-              </div>
+              <p className="flex items-center gap-2 text-foreground/80 font-bold text-lg"><MapPin className="h-6 w-6 text-primary" /> {vendor.locationDescription || 'Local Hub'}</p>
             </div>
             <div className="flex flex-wrap gap-4">
-              <Dialog>
+               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="outline" className="bg-white/95 backdrop-blur-sm border-none hover:bg-white gap-3 rounded-[1.5rem] h-16 px-10 font-bold shadow-2xl transition-all hover:scale-105 active:scale-95 text-primary text-lg">
                     <QrCode className="h-6 w-6" />
@@ -152,12 +194,6 @@ export default function PublicMenuPage() {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="rounded-[3rem] max-w-sm p-10 bg-white border-none shadow-2xl">
-                  <DialogHeader className="mb-6">
-                    <DialogTitle className="text-center font-headline text-3xl font-black uppercase italic text-primary">SCAN TO ACCESS</DialogTitle>
-                    <DialogDescription className="text-center text-lg font-medium text-muted-foreground">
-                      Point your camera here to see {vendor.name}&apos;s digital menu.
-                    </DialogDescription>
-                  </DialogHeader>
                   <div className="flex flex-col items-center gap-8">
                     <div className="p-6 bg-white rounded-[2.5rem] border-8 border-primary/5 shadow-inner">
                       {qrCodeUrl ? (
@@ -166,9 +202,7 @@ export default function PublicMenuPage() {
                         <Skeleton className="w-64 h-64 rounded-2xl" />
                       )}
                     </div>
-                    <Button className="w-full h-16 rounded-2xl font-bold bg-primary text-white text-xl shadow-lg shadow-primary/30 uppercase italic tracking-widest" asChild>
-                      <a href={qrCodeUrl} download={`${vendor.name}-Menu-QR.png`}>Save Stall QR</a>
-                    </Button>
+                    <p className="text-center text-lg font-medium text-muted-foreground uppercase italic tracking-widest">Scan to Share</p>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -188,20 +222,62 @@ export default function PublicMenuPage() {
             {activeStrategies.map((strat) => (
               <div 
                 key={strat.id} 
-                className="bg-primary/10 border-2 border-primary/20 rounded-[2rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm animate-in fade-in slide-in-from-top-4"
+                className={`border-2 rounded-[2rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm animate-in fade-in slide-in-from-top-4 ${strat.type === 'FoodWallet' ? 'bg-emerald-50 border-emerald-200' : 'bg-primary/10 border-primary/20'}`}
               >
                 <div className="flex items-center gap-4 text-center md:text-left">
-                  <div className="h-14 w-14 rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg">
+                  <div className={`h-14 w-14 rounded-2xl flex items-center justify-center text-white shadow-lg ${strat.type === 'FoodWallet' ? 'bg-emerald-600' : 'bg-primary'}`}>
                     {getStrategyIcon(strat.type)}
                   </div>
                   <div>
-                    <h4 className="text-xl font-black uppercase italic tracking-tighter text-primary">{strat.name}</h4>
+                    <h4 className={`text-xl font-black uppercase italic tracking-tighter ${strat.type === 'FoodWallet' ? 'text-emerald-700' : 'text-primary'}`}>{strat.name}</h4>
                     <p className="text-muted-foreground font-medium">{strat.description}</p>
                   </div>
                 </div>
-                <Button className="h-12 px-8 rounded-xl font-bold bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/20 shrink-0">
-                  Claim Reward
-                </Button>
+                {strat.type === 'FoodWallet' ? (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button className="h-12 px-8 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200 shrink-0">
+                        Top Up Now
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="rounded-[2.5rem] max-w-md bg-white border-none shadow-2xl">
+                      <DialogHeader>
+                        <DialogTitle className="text-3xl font-black uppercase italic text-emerald-600 font-headline">Food Wallet Bonus</DialogTitle>
+                        <DialogDescription className="text-lg">Prepay for your meals and get free bonus credits!</DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-6">
+                        {strat.walletTiers?.map((tier: any, i: number) => (
+                          <Button 
+                            key={i} 
+                            onClick={() => handleTopUp(tier.amount, tier.bonus)}
+                            disabled={isToppingUp !== null}
+                            className="h-20 flex justify-between items-center px-8 rounded-2xl border-2 border-emerald-100 bg-emerald-50/50 hover:bg-emerald-100 text-emerald-900 group transition-all"
+                            variant="ghost"
+                          >
+                            <div className="text-left">
+                              <p className="text-xs font-black uppercase tracking-widest text-emerald-600">Pay Only</p>
+                              <p className="text-2xl font-black italic">₹{tier.amount}</p>
+                            </div>
+                            <Plus className="h-6 w-6 text-emerald-300 group-hover:rotate-90 transition-transform" />
+                            <div className="text-right">
+                              <p className="text-xs font-black uppercase tracking-widest text-emerald-600">Get Credit</p>
+                              <p className="text-2xl font-black italic">₹{tier.amount + tier.bonus}</p>
+                            </div>
+                            {isToppingUp === tier.amount && <Loader2 className="h-5 w-5 animate-spin ml-2" />}
+                          </Button>
+                        ))}
+                      </div>
+                      <div className="bg-emerald-50 p-4 rounded-xl flex items-start gap-3">
+                         <CreditCard className="h-5 w-5 text-emerald-600 mt-0.5" />
+                         <p className="text-sm text-emerald-700 font-medium italic">Credits stay in your wallet and can be used for any future order at this stall!</p>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                ) : (
+                  <Button className="h-12 px-8 rounded-xl font-bold bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/20 shrink-0">
+                    Claim Reward
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -219,6 +295,17 @@ export default function PublicMenuPage() {
                 </p>
               </div>
 
+              {wallet && wallet.balance > 0 && (
+                <div className="p-8 bg-emerald-600 text-white rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
+                  <Wallet className="absolute -bottom-4 -right-4 h-24 w-24 opacity-10 transform -rotate-12" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-80">Available Credits</p>
+                  <p className="text-5xl font-black italic mb-4">₹{wallet.balance}</p>
+                  <Button variant="outline" className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20 font-bold rounded-xl h-10 text-xs uppercase italic tracking-widest">
+                    Top Up More
+                  </Button>
+                </div>
+              )}
+
               <div className="p-8 bg-primary/5 rounded-[2.5rem] border border-primary/10 space-y-6">
                  <h4 className="font-black uppercase tracking-tight flex items-center gap-2">
                    <Smartphone className="h-5 w-5 text-primary" /> Scan to Order
@@ -230,9 +317,6 @@ export default function PublicMenuPage() {
                      <Skeleton className="w-32 h-32 rounded-xl" />
                    )}
                  </div>
-                 <p className="text-sm text-center text-muted-foreground font-medium italic">
-                   Share this screen to let friends browse the menu!
-                 </p>
               </div>
             </div>
           </div>
@@ -243,9 +327,6 @@ export default function PublicMenuPage() {
                 <h2 className="text-5xl font-black font-headline uppercase italic tracking-tighter">Digital Menu</h2>
                 <p className="text-muted-foreground text-lg font-medium">Daily specialties & local favorites</p>
               </div>
-              <Badge variant="outline" className="rounded-2xl bg-white px-8 py-3 text-xl font-black shadow-xl border-primary/20 text-primary italic">
-                {menuItems?.length || 0} ITEMS
-              </Badge>
             </div>
 
             {isMenuLoading ? (
@@ -273,11 +354,6 @@ export default function PublicMenuPage() {
                           <Badge variant="destructive" className="h-14 px-10 rounded-full text-lg font-black uppercase italic tracking-widest shadow-2xl">SOLD OUT</Badge>
                         </div>
                       )}
-                      <div className="absolute bottom-6 left-6">
-                        <Badge className="bg-primary text-white font-black px-6 py-2 rounded-xl shadow-2xl border-none text-xs uppercase tracking-widest italic">
-                          {item.category}
-                        </Badge>
-                      </div>
                     </div>
                     <CardContent className="p-10 space-y-6 flex-1 flex flex-col justify-between">
                       <div className="space-y-4">

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -13,7 +14,8 @@ import {
   Zap,
   ArrowRight,
   Settings2,
-  CheckCircle2
+  CheckCircle2,
+  Wallet
 } from 'lucide-react';
 import { collection, query, where, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
@@ -42,6 +44,8 @@ interface StrategyConfig {
   type: string;
   buyCount?: number;
   rewardValue?: number;
+  walletTiers?: { amount: number; bonus: number }[];
+  isActive?: boolean;
 }
 
 export default function BusinessStrategiesPage() {
@@ -97,7 +101,6 @@ export default function BusinessStrategiesPage() {
           ...defaultConfig,
           id: strategyId,
           vendorId: vendor.id,
-          vendorOwnerId: user.uid,
           isActive: true,
           createdAt: new Date().toISOString(),
         };
@@ -129,7 +132,6 @@ export default function BusinessStrategiesPage() {
         ...editingStrategy,
         id: strategyId,
         vendorId: vendor.id,
-        vendorOwnerId: user.uid,
         updatedAt: new Date().toISOString(),
       }, { merge: true });
       
@@ -161,15 +163,20 @@ export default function BusinessStrategiesPage() {
     id: 'loyalty',
     type: 'BuyNGetMFree',
     name: 'Buy 5 Get 1 Free',
-    description: 'A classic reward system for your most loyal customers. Buy 5 items and get the 6th one free!',
+    description: 'Classic reward system. Buy 5 items and get the 6th one free!',
     buyCount: 5
   };
 
-  const defaultUpsell = {
-    id: 'upsell',
-    type: 'Upsell',
-    name: 'AI Smart Upsell',
-    description: 'Boost your average order value by suggesting popular pairings to your customers.'
+  const defaultWallet = {
+    id: 'wallet',
+    type: 'FoodWallet',
+    name: 'Food Wallet Bonus',
+    description: 'Prepay and get bonus credits. Pay ₹200, Get ₹220!',
+    walletTiers: [
+      { amount: 100, bonus: 10 },
+      { amount: 200, bonus: 25 },
+      { amount: 500, bonus: 75 }
+    ]
   };
 
   return (
@@ -201,13 +208,24 @@ export default function BusinessStrategiesPage() {
                <div className="h-10 w-px bg-primary/10" />
                <div className="text-center">
                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Est. Growth</p>
-                 <p className="text-3xl font-black text-green-600 font-headline italic">+28%</p>
+                 <p className="text-3xl font-black text-green-600 font-headline italic">+35%</p>
                </div>
             </div>
           </div>
 
           {/* Strategy Toggles */}
           <div className="grid gap-8">
+            <StrategyToggleCard 
+              icon={<Wallet className="h-8 w-8" />}
+              title="Food Wallet Bonus"
+              isActive={!!getStrategyByType('FoodWallet')?.isActive}
+              isUpdating={isUpdating === 'FoodWallet'}
+              description={getStrategyByType('FoodWallet')?.description || defaultWallet.description}
+              onToggle={() => handleToggle('FoodWallet', defaultWallet)}
+              onEdit={() => setEditingStrategy(getStrategyByType('FoodWallet') || defaultWallet)}
+              accentColor="bg-emerald-600"
+            />
+
             <StrategyToggleCard 
               icon={<Gift className="h-8 w-8" />}
               title="Referral Rewards"
@@ -216,7 +234,7 @@ export default function BusinessStrategiesPage() {
               description={getStrategyByType('Referral')?.description || defaultReferral.description}
               onToggle={() => handleToggle('Referral', defaultReferral)}
               onEdit={() => setEditingStrategy(getStrategyByType('Referral') || defaultReferral)}
-              accentColor="bg-blue-500"
+              accentColor="bg-blue-600"
             />
 
             <StrategyToggleCard 
@@ -227,18 +245,7 @@ export default function BusinessStrategiesPage() {
               description={getStrategyByType('BuyNGetMFree')?.description || defaultLoyalty.description}
               onToggle={() => handleToggle('BuyNGetMFree', defaultLoyalty)}
               onEdit={() => setEditingStrategy(getStrategyByType('BuyNGetMFree') || defaultLoyalty)}
-              accentColor="bg-orange-500"
-            />
-
-            <StrategyToggleCard 
-              icon={<Zap className="h-8 w-8" />}
-              title="Smart Upsell"
-              isActive={!!getStrategyByType('Upsell')?.isActive}
-              isUpdating={isUpdating === 'Upsell'}
-              description={getStrategyByType('Upsell')?.description || defaultUpsell.description}
-              onToggle={() => handleToggle('Upsell', defaultUpsell)}
-              onEdit={() => setEditingStrategy(getStrategyByType('Upsell') || defaultUpsell)}
-              accentColor="bg-purple-500"
+              accentColor="bg-orange-600"
             />
           </div>
 
@@ -250,12 +257,8 @@ export default function BusinessStrategiesPage() {
             <div className="relative space-y-6 max-w-2xl">
               <h4 className="text-3xl font-black font-headline uppercase italic tracking-tighter">Pro Growth Secret</h4>
               <p className="text-xl font-medium opacity-90 leading-relaxed italic">
-                "Referral programs are the #1 way street food stalls expand their radius. By offering rewards to both parties, you're building a community of loyal foodies."
+                "The Food Wallet is a game changer. When customers have credit, they don't look at prices—they look at flavors. It guarantees you upfront revenue and ensures they come back until the last rupee is spent."
               </p>
-              <div className="flex gap-4 pt-4">
-                <Badge className="bg-white/20 hover:bg-white/30 text-white border-none font-bold py-1.5 px-4 rounded-xl">Verified Case Study</Badge>
-                <Badge className="bg-white/20 hover:bg-white/30 text-white border-none font-bold py-1.5 px-4 rounded-xl">4.9x ROI</Badge>
-              </div>
             </div>
           </div>
         </div>
@@ -286,6 +289,41 @@ export default function BusinessStrategiesPage() {
                   className="rounded-xl min-h-[100px]"
                 />
               </div>
+              {editingStrategy.type === 'FoodWallet' && (
+                <div className="space-y-4">
+                  <Label>Bonus Tiers</Label>
+                  {editingStrategy.walletTiers?.map((tier, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <Label className="text-[10px] uppercase">Pay Amount</Label>
+                        <Input 
+                          type="number" 
+                          value={tier.amount} 
+                          onChange={(e) => {
+                            const newTiers = [...(editingStrategy.walletTiers || [])];
+                            newTiers[idx].amount = Number(e.target.value);
+                            setEditingStrategy({...editingStrategy, walletTiers: newTiers});
+                          }}
+                          className="h-10 rounded-lg"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-[10px] uppercase">Bonus Credit</Label>
+                        <Input 
+                          type="number" 
+                          value={tier.bonus} 
+                          onChange={(e) => {
+                            const newTiers = [...(editingStrategy.walletTiers || [])];
+                            newTiers[idx].bonus = Number(e.target.value);
+                            setEditingStrategy({...editingStrategy, walletTiers: newTiers});
+                          }}
+                          className="h-10 rounded-lg"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               {editingStrategy.type === 'Referral' && (
                 <div className="space-y-2">
                   <Label>Reward Value (₹)</Label>
@@ -372,18 +410,6 @@ function StrategyToggleCard({ icon, title, description, isActive, onToggle, onEd
             <p className={`text-lg leading-relaxed font-medium italic transition-colors ${isActive ? 'text-muted-foreground' : 'text-muted-foreground/40'}`}>
               {description}
             </p>
-
-            {isActive && (
-              <div className="pt-6 border-t border-primary/10 flex items-center gap-6">
-                 <div className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-black uppercase italic tracking-tighter">Active Participants</span>
-                 </div>
-                 <div className="ml-auto flex items-center gap-1 text-primary font-black uppercase italic tracking-tighter text-xs group-hover:translate-x-1 transition-transform cursor-pointer">
-                   View Analytics <ArrowRight className="h-4 w-4" />
-                 </div>
-              </div>
-            )}
           </div>
         </div>
       </CardContent>
