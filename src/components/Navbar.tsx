@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Utensils, Menu, X, LogOut, LayoutDashboard, UserCircle, Smartphone } from 'lucide-react';
+import { Utensils, Menu, X, LogOut, LayoutDashboard, UserCircle, Smartphone, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useUser, useAuth } from '@/firebase';
@@ -65,9 +65,13 @@ export default function Navbar() {
                 <LayoutDashboard className="h-4 w-4" />
                 Menu
               </Link>
+              <Link href="/vendor/strategies" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1.5">
+                <Rocket className="h-4 w-4" />
+                Strategies
+              </Link>
               <Link href="/vendor/profile" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1.5">
                 <UserCircle className="h-4 w-4" />
-                Stall Profile
+                Profile
               </Link>
               <div className="flex items-center gap-3 ml-4">
                 <Button 
@@ -127,6 +131,10 @@ export default function Navbar() {
                 <Link href="/vendor/menu" className="text-lg font-medium py-2 flex items-center gap-2" onClick={() => setIsOpen(false)}>
                   <LayoutDashboard className="h-5 w-5 text-primary" />
                   Manage Menu
+                </Link>
+                <Link href="/vendor/strategies" className="text-lg font-medium py-2 flex items-center gap-2" onClick={() => setIsOpen(false)}>
+                  <Rocket className="h-5 w-5 text-primary" />
+                  Business Strategies
                 </Link>
                 <Link href="/vendor/profile" className="text-lg font-medium py-2 flex items-center gap-2" onClick={() => setIsOpen(false)}>
                   <UserCircle className="h-5 w-5 text-primary" />
