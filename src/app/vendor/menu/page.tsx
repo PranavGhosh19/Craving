@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -8,7 +7,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X, Eye, Store, QrCode, Download, Share2 } from 'lucide-react';
+import { Utensils, IndianRupee, Sparkles, Plus, Loader2, Trash2, Tag, Upload, X, Eye, Store, QrCode, Download, Share2, Pencil, RotateCcw } from 'lucide-react';
 import { collection, query, where, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -44,10 +43,12 @@ export default function MenuManagement() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isAdding, setIsAdding] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [origin, setOrigin] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -115,6 +116,31 @@ export default function MenuManagement() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const startEditing = (item: any) => {
+    setEditingItemId(item.id);
+    form.reset({
+      name: item.name,
+      price: item.price,
+      description: item.description,
+      category: item.category,
+      imageUrl: item.imageUrl,
+    });
+    setImagePreview(item.imageUrl);
+    formRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const cancelEditing = () => {
+    setEditingItemId(null);
+    form.reset({
+      name: "",
+      price: 0,
+      description: "",
+      category: "Snacks",
+      imageUrl: "",
+    });
+    setImagePreview(null);
+  };
+
   async function handleGenerateDescription() {
     const dishName = form.getValues('name');
     if (!dishName) {
@@ -139,9 +165,9 @@ export default function MenuManagement() {
 
   async function onSubmit(values: MenuItemValues) {
     if (!firestore || !vendor?.id || !user?.uid) return;
-    setIsAdding(true);
+    setIsSubmitting(true);
 
-    const itemId = `item-${Date.now()}`;
+    const itemId = editingItemId || `item-${Date.now()}`;
     const itemRef = doc(firestore, 'vendors', vendor.id, 'menuItems', itemId);
     const itemData = {
       id: itemId,
@@ -153,24 +179,23 @@ export default function MenuManagement() {
       category: values.category,
       imageUrl: values.imageUrl,
       isAvailable: true,
-      createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      ...(editingItemId ? {} : { createdAt: new Date().toISOString() })
     };
 
-    setDoc(itemRef, itemData)
+    setDoc(itemRef, itemData, { merge: true })
       .then(() => {
-        toast({ title: "Item Added" });
-        form.reset();
-        setImagePreview(null);
+        toast({ title: editingItemId ? "Dish Updated" : "Dish Added" });
+        cancelEditing();
       })
       .catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: itemRef.path,
-          operation: 'create',
+          operation: editingItemId ? 'update' : 'create',
           requestResourceData: itemData,
         }));
       })
-      .finally(() => setIsAdding(false));
+      .finally(() => setIsSubmitting(false));
   }
 
   const publicUrl = vendor && origin ? `${origin}/v/${vendor.id}` : '';
@@ -191,7 +216,7 @@ export default function MenuManagement() {
       <Navbar />
       <main className="container mx-auto px-4 py-12">
         <div className="flex flex-col lg:flex-row gap-8">
-          <div className="w-full lg:w-1/3 space-y-8">
+          <div className="w-full lg:w-1/3 space-y-8" ref={formRef}>
             {vendor && (
               <Card className="shadow-xl rounded-[2rem] border-primary/10 overflow-hidden bg-white">
                 <CardHeader className="pb-2">
@@ -222,29 +247,20 @@ export default function MenuManagement() {
                         View Live Menu
                       </Button>
                     </Link>
-                    <Button 
-                      variant="ghost" 
-                      className="w-full h-12 rounded-xl font-bold text-muted-foreground hover:text-primary gap-2"
-                      onClick={() => {
-                        navigator.clipboard.writeText(publicUrl);
-                        toast({ title: "Link Copied!" });
-                      }}
-                    >
-                      <Share2 className="h-4 w-4" />
-                      Copy Menu Link
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            <Card className="shadow-xl rounded-[2rem] border-primary/10">
+            <Card className={`shadow-xl rounded-[2rem] border-primary/10 transition-all duration-300 ${editingItemId ? 'ring-2 ring-primary ring-offset-2' : ''}`}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-headline">
-                  <Plus className="h-6 w-6 text-primary" />
-                  Add Dish
+                  {editingItemId ? <Pencil className="h-6 w-6 text-primary" /> : <Plus className="h-6 w-6 text-primary" />}
+                  {editingItemId ? 'Edit Dish' : 'Add Dish'}
                 </CardTitle>
-                <CardDescription>Expand your digital menu.</CardDescription>
+                <CardDescription>
+                  {editingItemId ? 'Updating details for your specialty.' : 'Expand your digital menu.'}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <Form {...form}>
@@ -334,9 +350,17 @@ export default function MenuManagement() {
                       )}
                       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
                     </div>
-                    <Button type="submit" className="w-full h-14 rounded-2xl font-bold text-lg shadow-lg shadow-primary/20" disabled={isAdding}>
-                      {isAdding ? <Loader2 className="h-5 w-5 animate-spin" /> : "Save to Menu"}
-                    </Button>
+                    
+                    <div className="flex gap-3">
+                      {editingItemId && (
+                        <Button type="button" variant="outline" onClick={cancelEditing} className="flex-1 h-14 rounded-2xl font-bold">
+                          Cancel
+                        </Button>
+                      )}
+                      <Button type="submit" className="flex-[2] h-14 rounded-2xl font-bold text-lg shadow-lg shadow-primary/20" disabled={isSubmitting}>
+                        {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : (editingItemId ? "Update Dish" : "Save to Menu")}
+                      </Button>
+                    </div>
                   </form>
                 </Form>
               </CardContent>
@@ -350,7 +374,7 @@ export default function MenuManagement() {
             ) : menuItems && menuItems.length > 0 ? (
               <div className="grid gap-6">
                 {menuItems.map((item) => (
-                  <Card key={item.id} className="overflow-hidden shadow-md border-primary/5 group">
+                  <Card key={item.id} className={`overflow-hidden shadow-md border-primary/5 group transition-all duration-300 ${editingItemId === item.id ? 'border-primary bg-primary/5' : ''}`}>
                     <div className="flex flex-col sm:flex-row">
                       <div className="relative w-full sm:w-48 h-48 sm:h-auto overflow-hidden">
                         <Image src={item.imageUrl} alt={item.name} fill className={`object-cover ${!item.isAvailable ? 'grayscale opacity-50' : ''}`} />
@@ -372,9 +396,14 @@ export default function MenuManagement() {
                             }} />
                             <Label className="text-sm">Available</Label>
                           </div>
-                          <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/5" onClick={() => deleteDoc(doc(firestore, 'vendors', vendor.id, 'menuItems', item.id))}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/5" onClick={() => startEditing(item)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/5" onClick={() => deleteDoc(doc(firestore, 'vendors', vendor.id, 'menuItems', item.id))}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
